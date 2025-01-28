@@ -24,7 +24,7 @@ const s3Client = new S3Client({
 async function createS3DirectoryWithPresignedUrls(
   botId: string
 ): Promise<{ writeUrl: string; readUrl: string }> {
-  const key = `bots/${botId}/`;
+  const key = `bots/${botId}/source_code.tar.gz`;
   const baseParams = {
     Bucket: process.env.AWS_BUCKET_NAME!,
     Key: key,
@@ -63,6 +63,20 @@ app.post("/generate", async (request, reply) => {
       ownerId: uuidv4(), // TODO proper auth
     })
     .returning();
+
+    const compileResponse = await fetch('http://127.0.0.1:5005/compile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        writeUrl,
+        readUrl
+      })
+    });
+    
+    const compileResult = await compileResponse.json();
+    console.log(compileResult);
 
   return reply.send({ newBot, writeUrl, readUrl });
 });
