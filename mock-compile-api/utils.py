@@ -1,8 +1,5 @@
-import os
-import tarfile
 import requests
 import logging
-import magic
 from werkzeug.exceptions import InternalServerError
 
 def upload_to_s3(file_path, presigned_url):
@@ -10,8 +7,6 @@ def upload_to_s3(file_path, presigned_url):
     Upload a file to S3 using a pre-signed URL
     """
     try:
-        mime = magic.from_file(file_path, mime=True)
-        print(f"Uploading file with MIME type: {mime}")
         with open(file_path, 'rb') as f:
             response = requests.put(
                 presigned_url,

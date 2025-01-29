@@ -1,9 +1,13 @@
 {
   "name": "sample-bot",
-  "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "start": "tsx index.ts"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@flydotio/dockerfile": "^0.7.4",
+    "@types/bun": "latest",
+    "tsx": "^4.19.2"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"

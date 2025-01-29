@@ -9,6 +9,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "dotenv";
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
 
 config();
 
@@ -20,6 +23,8 @@ const s3Client = new S3Client({
   },
   region: process.env.AWS_REGION!,
 });
+
+const FLY_IO_TOKEN = `FlyV1 fm2_lJPECAAAAAAAB8NXxBCUbh4iYlfi40QeTg3sYdsGwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOAAz9Rx8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDwfP6e1z6RTTMKW/IzQnr2aQGQMmKd7wA0RLCIuYGG6Z5Q/YXDWVFePwmo3Amv9yoeTPwO7+3wl9nge7s7ETinYab4c2hCa6larKnp+oBu8CsOOyGVZhQaZrVXh21DW2wST7of8TURXiHa4Eq6qZ9EB0ykw5w1WsjP7NKEF2uNdDWLHPVLO4w2VE7FKI8QgUvnkpfaayEv9o81gWoUNcilUEF1j+p5Rx/3MABd85TI=,fm2_lJPETinYab4c2hCa6larKnp+oBu8CsOOyGVZhQaZrVXh21DW2wST7of8TURXiHa4Eq6qZ9EB0ykw5w1WsjP7NKEF2uNdDWLHPVLO4w2VE7FKI8QQF0eq/BrCukKyz1+37imZf8O5aHR0cHM6Ly9hcGkuZmx5LmlvL2FhYS92MZgEks5nmZzQzwAAAAEjkbruF84ADJbOCpHOAAyWzgzEELRw69iT8IUnEyr0ULJeKwDEINcolC4KGJzJYckD4dMO8lEg5H/RASPiIp29oYLmJoJV`;
 
 async function createS3DirectoryWithPresignedUrls(
   botId: string
@@ -64,19 +69,54 @@ app.post("/generate", async (request, reply) => {
     })
     .returning();
 
-    const compileResponse = await fetch('http://127.0.0.1:5005/compile', {
-      method: 'POST',
+  try {
+    const compileResponse = await fetch("http://127.0.0.1:5005/compile", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         writeUrl,
-        readUrl
-      })
+        readUrl,
+      }),
     });
+
+    const _compileResult = await compileResponse.json();
+
+    const downloadDir = path.join(process.cwd(), "downloads");
+    const tarballPath = path.join(downloadDir, `${botId}.tar.gz`);
+    const extractDir = path.join(downloadDir, botId);
+
+    // Create downloads directory
+    fs.mkdirSync(downloadDir, { recursive: true });
+    fs.mkdirSync(extractDir, { recursive: true });
+
+    // Download the tarball
+    const response = await fetch(readUrl);
+    const buffer = await response.arrayBuffer();
+    fs.writeFileSync(tarballPath, Buffer.from(buffer));
+
+    // Extract the tarball
+    execSync(`tar -xzf ${tarballPath} -C ${extractDir}`);
+
+    const files = execSync(`ls -la ${extractDir}`).toString();
+    console.log("Extracted files:", files);
     
-    const compileResult = await compileResponse.json();
-    console.log(compileResult);
+    const packageJsonPath = execSync(`find ${extractDir} -name package.json -maxdepth 2 -print -quit`).toString().trim();
+    const packageJsonDirectory = path.dirname(packageJsonPath);
+
+    console.log("package.json path:", packageJsonPath);
+    console.log("package.json directory:", packageJsonDirectory);
+    
+    // cd to the packageJson directory directory and run `fly launch` in there
+    execSync(`fly launch -y --env TELEGRAM_BOT_TOKEN=7380687946:AAHZpeSObIem-uGFA7rrgzzxgR1bh4Wl4hY --access-token '${FLY_IO_TOKEN}'`, { cwd: packageJsonDirectory });
+
+    fs.rmdirSync(downloadDir, { recursive: true });
+    fs.rmdirSync(extractDir, { recursive: true });
+  } catch (error) {
+    console.error("Error compiling bot:", error);
+    return reply.status(500).send({ error: "Failed to compile bot" });
+  }
 
   return reply.send({ newBot, writeUrl, readUrl });
 });
