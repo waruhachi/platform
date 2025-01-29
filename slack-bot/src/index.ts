@@ -13,52 +13,68 @@ const app = new App({
   socketMode: true,
 });
 
-app.event("message", async ({ event, client, logger }) => {
-  if (event.subtype === undefined || event.subtype === "bot_message") {
-    logger.info(event);
+app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
+  await ack();
 
-    if (event.user !== "U0775H2TR9U") {
-      return;
-    }
+  if (body.user_id !== "U0775H2TR9U") {
+    await app.client.chat.postMessage({
+      channel: body.channel_id,
+      text: "I only talk to Mr. Gomes.",
+    });
+
+    return;
+  }
+
+  // Get the text after the command and split it into arguments
+  const args = body.text.split(" ");
+  const botToken = args[0];
+  const prompt = args.slice(1).join(" ");
+
+  // Send message with both arguments
+  const msg = await app.client.chat.postMessage({
+    channel: body.channel_id,
+    text: `Let's generate a Telegram chatbot! 🤖
     
-    if (event.text?.trim().startsWith("generate")) {
-      const prompt = event.text.replace("generate", "").trim();
+Please iterate with me on this thread 🧵`,
+  });
 
-      await client.chat.postMessage({
-        channel: event.channel,
-        text: `Generating... ${prompt}`,
-      });
-      
-      logger.info("calling the build endpoint");
-      /*const response = await fetch("http://localhost:8000/build", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          description: prompt,
-        }),
-      });*/
-      
-      const response = await fetch("http://localhost:4444/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          description: prompt,
-        }),
-      });
-      
-      logger.info("build endpoint returned");
+  // Post update on thread
+  await app.client.chat.postMessage({
+    channel: body.channel_id,
+    thread_ts: msg.ts,
+    text: `Prompt: ${prompt}
+Bot Token: ${botToken}
+    `,
+  });
 
-      const result = await response.json();
-      
-      await client.chat.postMessage({
-        channel: event.channel,
-        text: JSON.stringify(result),
-      });
-    }
+  const response = await fetch("http://localhost:4444/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      botToken,
+    }),
+  });
+
+  logger.info("generate endpoint returned", response);
+
+  if (response.ok) {
+    const generateResult = await response.json();
+    console.log("generateResult", generateResult);
+
+    await app.client.chat.postMessage({
+      channel: body.channel_id,
+      thread_ts: msg.ts,
+      text: "✅ The bot has been successfully deployed, go and talk to it!",
+    });
+  } else {
+    await app.client.chat.postMessage({
+      channel: body.channel_id,
+      thread_ts: msg.ts,
+      text: "There was an error while deploying the bot",
+    });
   }
 });
 

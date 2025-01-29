@@ -24,8 +24,6 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION!,
 });
 
-const FLY_IO_TOKEN = `FlyV1 fm2_lJPECAAAAAAAB8NXxBCUbh4iYlfi40QeTg3sYdsGwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOAAz9Rx8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDwfP6e1z6RTTMKW/IzQnr2aQGQMmKd7wA0RLCIuYGG6Z5Q/YXDWVFePwmo3Amv9yoeTPwO7+3wl9nge7s7ETinYab4c2hCa6larKnp+oBu8CsOOyGVZhQaZrVXh21DW2wST7of8TURXiHa4Eq6qZ9EB0ykw5w1WsjP7NKEF2uNdDWLHPVLO4w2VE7FKI8QgUvnkpfaayEv9o81gWoUNcilUEF1j+p5Rx/3MABd85TI=,fm2_lJPETinYab4c2hCa6larKnp+oBu8CsOOyGVZhQaZrVXh21DW2wST7of8TURXiHa4Eq6qZ9EB0ykw5w1WsjP7NKEF2uNdDWLHPVLO4w2VE7FKI8QQF0eq/BrCukKyz1+37imZf8O5aHR0cHM6Ly9hcGkuZmx5LmlvL2FhYS92MZgEks5nmZzQzwAAAAEjkbruF84ADJbOCpHOAAyWzgzEELRw69iT8IUnEyr0ULJeKwDEINcolC4KGJzJYckD4dMO8lEg5H/RASPiIp29oYLmJoJV`;
-
 async function createS3DirectoryWithPresignedUrls(
   botId: string
 ): Promise<{ writeUrl: string; readUrl: string }> {
@@ -55,7 +53,10 @@ const app = fastify({
 const db = drizzle(process.env.DATABASE_URL!);
 
 app.post("/generate", async (request, reply) => {
-  const { description } = request.body as { description: string };
+  const { prompt, telegramBotToken } = request.body as {
+    prompt: string;
+    telegramBotToken: string;
+  };
 
   const botId = uuidv4();
   const { writeUrl, readUrl } = await createS3DirectoryWithPresignedUrls(botId);
@@ -64,7 +65,7 @@ app.post("/generate", async (request, reply) => {
     .insert(chatbots)
     .values({
       id: botId,
-      name: description,
+      name: prompt,
       ownerId: uuidv4(), // TODO proper auth
     })
     .returning();
@@ -76,12 +77,14 @@ app.post("/generate", async (request, reply) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        prompt,
         writeUrl,
         readUrl,
       }),
     });
 
     const _compileResult = await compileResponse.json();
+    console.log("compileResponse", _compileResult);
 
     const downloadDir = path.join(process.cwd(), "downloads");
     const tarballPath = path.join(downloadDir, `${botId}.tar.gz`);
@@ -101,15 +104,27 @@ app.post("/generate", async (request, reply) => {
 
     const files = execSync(`ls -la ${extractDir}`).toString();
     console.log("Extracted files:", files);
-    
-    const packageJsonPath = execSync(`find ${extractDir} -name package.json -maxdepth 2 -print -quit`).toString().trim();
+
+    const packageJsonPath = execSync(
+      `find ${extractDir} -name package.json -maxdepth 2 -print -quit`
+    )
+      .toString()
+      .trim();
     const packageJsonDirectory = path.dirname(packageJsonPath);
 
     console.log("package.json path:", packageJsonPath);
     console.log("package.json directory:", packageJsonDirectory);
-    
+
     // cd to the packageJson directory directory and run `fly launch` in there
-    execSync(`fly launch -y --env TELEGRAM_BOT_TOKEN=7380687946:AAHZpeSObIem-uGFA7rrgzzxgR1bh4Wl4hY --access-token '${FLY_IO_TOKEN}'`, { cwd: packageJsonDirectory });
+    console.log(
+      "command",
+      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --access-token '${process.env.FLY_IO_TOKEN!}'`
+    );
+
+    execSync(
+      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --access-token '${process.env.FLY_IO_TOKEN!}'`,
+      { cwd: packageJsonDirectory }
+    );
 
     fs.rmdirSync(downloadDir, { recursive: true });
     fs.rmdirSync(extractDir, { recursive: true });
