@@ -80,6 +80,7 @@ app.post("/generate", async (request, reply) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
       },
       body: JSON.stringify({
         prompt,
