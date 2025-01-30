@@ -12,6 +12,7 @@ import { config } from "dotenv";
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { createApiClient } from "@neondatabase/api-client";
 
 config();
 
@@ -22,6 +23,10 @@ const s3Client = new S3Client({
     sessionToken: process.env.AWS_SESSION_TOKEN!,
   },
   region: process.env.AWS_REGION!,
+});
+
+const neonClient = createApiClient({
+  apiKey: process.env.NEON_API_KEY!,
 });
 
 async function createS3DirectoryWithPresignedUrls(
@@ -115,10 +120,16 @@ app.post("/generate", async (request, reply) => {
     console.log("package.json path:", packageJsonPath);
     console.log("package.json directory:", packageJsonDirectory);
 
+    // Create a Neon database
+    const { data } = await neonClient.createProject({
+      project: {},
+    });
+    const connectionString = data.connection_uris[0].connection_uri;
+
     // cd to the packageJson directory directory and run `fly launch` in there
     console.log("telegramBotToken", telegramBotToken);
     execSync(
-      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --access-token '${process.env.FLY_IO_TOKEN!}'`,
+      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --access-token '${process.env.FLY_IO_TOKEN!}'`,
       { cwd: packageJsonDirectory }
     );
 
