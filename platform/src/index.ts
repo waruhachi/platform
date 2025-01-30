@@ -116,11 +116,7 @@ app.post("/generate", async (request, reply) => {
     console.log("package.json directory:", packageJsonDirectory);
 
     // cd to the packageJson directory directory and run `fly launch` in there
-    console.log(
-      "command",
-      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --access-token '${process.env.FLY_IO_TOKEN!}'`
-    );
-
+    console.log("telegramBotToken", telegramBotToken);
     execSync(
       `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --access-token '${process.env.FLY_IO_TOKEN!}'`,
       { cwd: packageJsonDirectory }
