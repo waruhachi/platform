@@ -80,7 +80,7 @@ app.post("/generate", async (request, reply) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
+        Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
       },
       body: JSON.stringify({
         prompt,
@@ -88,9 +88,13 @@ app.post("/generate", async (request, reply) => {
         // readUrl,
       }),
     });
+    console.log("compileResponse", compileResponse);
+
+    if (!compileResponse.ok) {
+      throw new Error(`HTTP error! status: ${compileResponse.status}`);
+    }
 
     const _compileResult = await compileResponse.json();
-    console.log("compileResponse", _compileResult);
 
     const downloadDir = path.join(process.cwd(), "downloads");
     const tarballPath = path.join(downloadDir, `${botId}.tar.gz`);
@@ -130,7 +134,7 @@ app.post("/generate", async (request, reply) => {
     // cd to the packageJson directory directory and run `fly launch` in there
     console.log("telegramBotToken", telegramBotToken);
     execSync(
-      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}'`,
+      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db`,
       { cwd: packageJsonDirectory }
     );
 
