@@ -76,7 +76,7 @@ app.post("/generate", async (request, reply) => {
     .returning();
 
   try {
-    const compileResponse = await fetch("http://127.0.0.1:5005/compile", {
+    const compileResponse = await fetch("http://44.244.252.49:8080/compile", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -85,7 +85,7 @@ app.post("/generate", async (request, reply) => {
       body: JSON.stringify({
         prompt,
         writeUrl,
-        readUrl,
+        // readUrl,
       }),
     });
 
@@ -130,12 +130,12 @@ app.post("/generate", async (request, reply) => {
     // cd to the packageJson directory directory and run `fly launch` in there
     console.log("telegramBotToken", telegramBotToken);
     execSync(
-      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --access-token '${process.env.FLY_IO_TOKEN!}'`,
+      `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}'`,
       { cwd: packageJsonDirectory }
     );
 
-    fs.rmdirSync(downloadDir, { recursive: true });
-    fs.rmdirSync(extractDir, { recursive: true });
+    // fs.rmdirSync(downloadDir, { recursive: true });
+    // fs.rmdirSync(extractDir, { recursive: true });
   } catch (error) {
     console.error("Error compiling bot:", error);
     return reply.status(500).send({ error: "Failed to compile bot" });
