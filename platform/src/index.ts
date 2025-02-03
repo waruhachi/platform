@@ -85,6 +85,7 @@ app.post("/generate", async (request, reply) => {
       body: JSON.stringify({
         prompt,
         writeUrl,
+        botId,
         // readUrl,
       }),
     });
