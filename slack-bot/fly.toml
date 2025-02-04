@@ -1,0 +1,28 @@
+# fly.toml app configuration file generated for slack-bot-late-fire-7643 on 2025-02-03T13:05:21-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'slack-bot-late-fire-7643'
+primary_region = 'dfw'
+
+[build]
+
+[env]
+  APP_TOKEN = 'xapp-1-A08A524N740-8334971211249-f98debc0b50f149b9f6f50a32e615a8fabf0dbed541d7929220c5a65b72fbe98'
+  DATABASE_URL = 'postgresql://neondb_owner:npg_j5Xo3dCykuBc@ep-round-cherry-a8bbd0ap-pooler.eastus2.azure.neon.tech/neondb?sslmode=require'
+  SIGNING_SECRET = '80b93617b4aa8cba4698cb0ee5414bef'
+  TOKEN = 'xoxb-2231113872023-8308224884967-9waZAIKKLmdzzQWIWhu68hC3'
+
+[http_service]
+  # internal_port = 3000
+  force_https = false
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
