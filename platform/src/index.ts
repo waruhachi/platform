@@ -166,8 +166,11 @@ app.post("/generate", async (request, reply) => {
       // delete the package-lock.json in the downloaded directory
       const packageLockPath = path.join(packageJsonDirectory, "package-lock.json");
       if (fs.existsSync(packageLockPath)) {
-        fs.rmdirSync(packageLockPath);
+        fs.rmSync(packageLockPath);
       }
+
+      const files2 = execSync(`ls -la ${extractDir}`).toString();
+      console.log("Extracted files2:", files2);
 
       execSync(
         `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy`,
