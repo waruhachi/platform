@@ -13,6 +13,10 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
+import * as tar from "tar";
+import { pipeline } from 'stream';
+import { promisify } from 'util';
+import { createGunzip } from 'zlib';
 
 config();
 
@@ -117,13 +121,18 @@ app.post("/generate", async (request, reply) => {
       fs.mkdirSync(downloadDir, { recursive: true });
       fs.mkdirSync(extractDir, { recursive: true });
 
-      // Download the tarball
+      // Download the tarball with proper error handling
       const response = await fetch(readUrl);
+      if (!response.ok) {
+          throw new Error(`Failed to download: ${response.statusText}`);
+      }
+
+      // Stream the response directly to file
       const buffer = await response.arrayBuffer();
       fs.writeFileSync(tarballPath, Buffer.from(buffer));
 
       // Extract the tarball
-      execSync(`tar -xzf ${tarballPath} -C ${extractDir}`);
+      execSync(`tar -xvzf ${tarballPath} -C ${extractDir}`);
 
       const files = execSync(`ls -la ${extractDir}`).toString();
       console.log("Extracted files:", files);
@@ -163,7 +172,6 @@ app.post("/generate", async (request, reply) => {
     return reply.status(400).send({ error: "Bad request" });
   }
 });
-
 const start = async () => {
   try {
     await app.listen({ host: "0.0.0.0", port: 4444 });

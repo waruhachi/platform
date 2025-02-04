@@ -10,6 +10,13 @@ config();
 
 const db = drizzle(process.env.DATABASE_URL!);
 
+let AGENT_API_HOST: string;
+if (process.env.NODE_ENV === 'production') {
+  AGENT_API_HOST = "http://platform-muddy-meadow-938.fly.dev";
+} else {
+  AGENT_API_HOST = "http://0.0.0.0:4444";
+}
+
 const app = new App({
   token: process.env.TOKEN,
   signingSecret: process.env.SIGNING_SECRET,
@@ -29,7 +36,7 @@ async function chatbotIteration({
   channelId: string;
   threadTs: string;
 }) {
-  const response = await fetch("http://platform-muddy-meadow-938.fly.dev/generate", {
+  const response = await fetch(`${AGENT_API_HOST}/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
