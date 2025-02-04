@@ -12,13 +12,18 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV="production"
 
+# Install packages needed to build node modules
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y ca-certificates
 
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3
+    apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3 curl
+
+RUN curl -L https://fly.io/install.sh | sh
 
 # Install node modules
 COPY bun.lockb package.json ./
@@ -33,6 +38,7 @@ FROM base
 
 # Copy built application
 COPY --from=build /app /app
+COPY --from=build /root /root
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000

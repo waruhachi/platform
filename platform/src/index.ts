@@ -13,10 +13,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
-import * as tar from "tar";
-import { pipeline } from 'stream';
-import { promisify } from 'util';
-import { createGunzip } from 'zlib';
+import * as unzipper from "unzipper";
 
 config();
 
@@ -36,7 +33,7 @@ const neonClient = createApiClient({
 async function createS3DirectoryWithPresignedUrls(
   botId: string
 ): Promise<{ writeUrl: string; readUrl: string }> {
-  const key = `bots/${botId}/source_code.tar.gz`;
+  const key = `bots/${botId}/source_code.zip`;
   const baseParams = {
     Bucket: process.env.AWS_BUCKET_NAME!,
     Key: key,
@@ -114,25 +111,29 @@ app.post("/generate", async (request, reply) => {
       } = await compileResponse.json();
 
       const downloadDir = path.join(process.cwd(), "downloads");
-      const tarballPath = path.join(downloadDir, `${botId}.tar.gz`);
+      const zipPath = path.join(downloadDir, `${botId}.zip`);
       const extractDir = path.join(downloadDir, botId);
 
       // Create downloads directory
       fs.mkdirSync(downloadDir, { recursive: true });
       fs.mkdirSync(extractDir, { recursive: true });
 
-      // Download the tarball with proper error handling
+      // Download the zip with proper error handling
       const response = await fetch(readUrl);
       if (!response.ok) {
-          throw new Error(`Failed to download: ${response.statusText}`);
+        throw new Error(`Failed to download: ${response.statusText}`);
       }
 
-      // Stream the response directly to file
       const buffer = await response.arrayBuffer();
-      fs.writeFileSync(tarballPath, Buffer.from(buffer));
+      fs.writeFileSync(zipPath, Buffer.from(buffer));
 
-      // Extract the tarball
-      execSync(`tar -xvzf ${tarballPath} -C ${extractDir}`);
+      // Extract the zip
+      // execSync(`unzip -o ${zipPath} -d ${extractDir}`);
+      // Replace the execSync line with:
+      await fs
+        .createReadStream(zipPath)
+        .pipe(unzipper.Extract({ path: extractDir }))
+        .promise();
 
       const files = execSync(`ls -la ${extractDir}`).toString();
       console.log("Extracted files:", files);
@@ -156,12 +157,12 @@ app.post("/generate", async (request, reply) => {
       // cd to the packageJson directory directory and run `fly launch` in there
       console.log("telegramBotToken", telegramBotToken);
       execSync(
-        `fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db`,
-        { cwd: packageJsonDirectory }
+        `/root/.fly/bin/fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db`,
+        { cwd: packageJsonDirectory, stdio: "inherit" }
       );
 
-      // fs.rmdirSync(downloadDir, { recursive: true });
-      // fs.rmdirSync(extractDir, { recursive: true });
+      fs.rmdirSync(downloadDir, { recursive: true });
+      fs.rmdirSync(extractDir, { recursive: true });
 
       return reply.send({ newBot, writeUrl, readUrl, compileResult });
     } catch (error) {
