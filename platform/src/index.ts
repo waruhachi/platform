@@ -156,13 +156,39 @@ app.post("/generate", async (request, reply) => {
 
       // cd to the packageJson directory directory and run `fly launch` in there
       console.log("telegramBotToken", telegramBotToken);
+      let flyBinary;
+      if (process.env.NODE_ENV === "production") {
+        flyBinary = "/root/.fly/bin/fly";
+      } else {
+        flyBinary = "fly";
+      }
+
       execSync(
-        `/root/.fly/bin/fly launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db`,
+        `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy`,
         { cwd: packageJsonDirectory, stdio: "inherit" }
       );
 
-      fs.rmdirSync(downloadDir, { recursive: true });
-      fs.rmdirSync(extractDir, { recursive: true });
+      const flyTomlPath = path.join(packageJsonDirectory, "fly.toml");
+      const flyTomlContent = fs.readFileSync(flyTomlPath, "utf8");
+      const updatedContent = flyTomlContent.replace(
+        "min_machines_running = 0",
+        "min_machines_running = 1"
+      );
+      fs.writeFileSync(flyTomlPath, updatedContent);
+
+      execSync(
+        `${flyBinary} deploy --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
+        { cwd: packageJsonDirectory, stdio: "inherit" }
+      );
+
+      if (process.env.NODE_ENV === "production") {
+        if (fs.existsSync(downloadDir)) {
+          fs.rmdirSync(downloadDir, { recursive: true });
+        }
+        if (fs.existsSync(extractDir)) {
+          fs.rmdirSync(extractDir, { recursive: true });
+        }
+      }
 
       return reply.send({ newBot, writeUrl, readUrl, compileResult });
     } catch (error) {
