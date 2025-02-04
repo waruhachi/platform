@@ -29,7 +29,7 @@ async function chatbotIteration({
   channelId: string;
   threadTs: string;
 }) {
-  const response = await fetch("http://localhost:4444/generate", {
+  const response = await fetch("http://platform-muddy-meadow-938.fly.dev/generate", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -43,13 +43,37 @@ async function chatbotIteration({
   console.log("generate endpoint returned", response);
 
   if (response.ok) {
-    const generateResult = await response.json();
+    const generateResult: {
+      readUrl: string;
+      writeUrl: string;
+      newBot: {
+        id: string;
+        name: string;
+        // more stuff here
+      },
+      compileResult: {
+        status: string;
+        message: string;
+        metadata: {
+          functions: Array<{
+            name: string;
+            description: string;
+            examples: Array<string>;
+          }>
+        }
+      }
+    } = await response.json();
     console.log("generateResult", generateResult);
 
     await app.client.chat.postMessage({
       channel: channelId,
       thread_ts: threadTs,
-      text: "✅ The bot has been successfully deployed, go and talk to it!",
+      text: `✅ The bot has been successfully deployed, go and talk to it!
+Download the code here: ${generateResult.readUrl}
+Status: ${generateResult.compileResult.status}
+Message: ${generateResult.compileResult.message}
+      
+Functions and their examples: ${JSON.stringify(generateResult.compileResult.metadata.functions)}`,
     });
   } else {
     await app.client.chat.postMessage({
@@ -61,8 +85,6 @@ async function chatbotIteration({
 }
 
 app.message("", async ({ event, logger }) => {
-  logger.info("CONA");
-  
   let threadTs: string;
   if ("thread_ts" in event) {
     threadTs = event.thread_ts as string;
@@ -105,10 +127,10 @@ app.message("", async ({ event, logger }) => {
 app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
   await ack();
 
-  if (body.user_id !== "U0775H2TR9U") {
+  if (body.user_id !== "U0775H2TR9U" && body.user_id !== "U087XSZ2XHR" && body.user_id !== "U087XSWNS3C" && body.user_id !== "U07HP8X7LN5" && body.user_id !== "U07K72G2J76") {
     await app.client.chat.postMessage({
       channel: body.channel_id,
-      text: "I only talk to Mr. Gomes.",
+      text: "I only talk to Mr. Gomes., Evgenii, Igor, Pedro and Holt",
     });
 
     return;
