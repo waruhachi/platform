@@ -14,7 +14,7 @@ ENV NODE_ENV="production"
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y ca-certificates
+    apt-get install --no-install-recommends -y ca-certificates nodejs npm
 
 # Throw-away build stage to reduce size of final image
 FROM base AS build

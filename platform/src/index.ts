@@ -164,13 +164,59 @@ app.post("/generate", async (request, reply) => {
       }
 
       // delete the package-lock.json in the downloaded directory
-      const packageLockPath = path.join(packageJsonDirectory, "package-lock.json");
-      if (fs.existsSync(packageLockPath)) {
-        fs.rmSync(packageLockPath);
-      }
+      // const packageLockPath = path.join(packageJsonDirectory, "package-lock.json");
+      // if (fs.existsSync(packageLockPath)) {
+        // fs.rmSync(packageLockPath);
+      // }
 
       const files2 = execSync(`ls -la ${extractDir}`).toString();
       console.log("Extracted files2:", files2);
+
+      // Write the `Dockerfile` to the packageJsonDirectory
+      fs.writeFileSync(
+        path.join(packageJsonDirectory, "Dockerfile"),
+        `
+# syntax = docker/dockerfile:1
+# Adjust BUN_VERSION as desired
+ARG BUN_VERSION=1.2.1
+
+FROM oven/bun:\${BUN_VERSION}-slim AS base
+LABEL fly_launch_runtime="Bun"
+
+# Bun app lives here
+WORKDIR /app
+
+# Set production environment
+ENV NODE_ENV="production"
+
+# Throw-away build stage to reduce size of final image
+FROM base AS build
+
+
+# Install packages needed to build node modules
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3
+
+# Install node modules
+COPY bun.lock package-lock.json package.json ./
+RUN bun install --ci
+
+
+# Copy application code
+COPY . .
+
+# Final stage for app image
+FROM base
+
+# Copy built application
+COPY --from=build /app /app
+
+# Start the server by default, this can be overwritten at runtime
+
+EXPOSE 3000
+
+CMD [ "bun", "run", "start" ]
+`);
 
       execSync(
         `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy`,
