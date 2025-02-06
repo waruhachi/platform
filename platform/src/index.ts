@@ -14,6 +14,7 @@ import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import * as unzipper from "unzipper";
+import { eq } from "drizzle-orm";
 
 config();
 
@@ -60,9 +61,10 @@ const db = drizzle(process.env.DATABASE_URL!);
 
 app.post("/generate", async (request, reply) => {
   try {
-    const { prompt, telegramBotToken } = request.body as {
+    const { prompt, telegramBotToken, userId } = request.body as {
       prompt: string;
       telegramBotToken: string;
+      userId: string;
     };
 
     const botId = uuidv4();
@@ -74,7 +76,8 @@ app.post("/generate", async (request, reply) => {
       .values({
         id: botId,
         name: prompt,
-        ownerId: uuidv4(), // TODO proper auth
+        ownerId: userId,
+        telegramBotToken,
       })
       .returning();
 
@@ -127,9 +130,6 @@ app.post("/generate", async (request, reply) => {
       const buffer = await response.arrayBuffer();
       fs.writeFileSync(zipPath, Buffer.from(buffer));
 
-      // Extract the zip
-      // execSync(`unzip -o ${zipPath} -d ${extractDir}`);
-      // Replace the execSync line with:
       await fs
         .createReadStream(zipPath)
         .pipe(unzipper.Extract({ path: extractDir }))
@@ -145,7 +145,6 @@ app.post("/generate", async (request, reply) => {
         .trim();
       const packageJsonDirectory = path.dirname(packageJsonPath);
 
-      console.log("package.json path:", packageJsonPath);
       console.log("package.json directory:", packageJsonDirectory);
 
       // Create a Neon database
@@ -154,23 +153,12 @@ app.post("/generate", async (request, reply) => {
       });
       const connectionString = data.connection_uris[0].connection_uri;
 
-      // cd to the packageJson directory directory and run `fly launch` in there
-      console.log("telegramBotToken", telegramBotToken);
       let flyBinary;
       if (process.env.NODE_ENV === "production") {
         flyBinary = "/root/.fly/bin/fly";
       } else {
         flyBinary = "fly";
       }
-
-      // delete the package-lock.json in the downloaded directory
-      // const packageLockPath = path.join(packageJsonDirectory, "package-lock.json");
-      // if (fs.existsSync(packageLockPath)) {
-        // fs.rmSync(packageLockPath);
-      // }
-
-      const files2 = execSync(`ls -la ${extractDir}`).toString();
-      console.log("Extracted files2:", files2);
 
       // Write the `Dockerfile` to the packageJsonDirectory
       fs.writeFileSync(
@@ -216,12 +204,37 @@ COPY --from=build /app /app
 EXPOSE 3000
 
 CMD [ "bun", "run", "start" ]
-`);
+`
+      );
 
+      // Find existing app with `telegramBotToken`
+      const existingBots = await db
+        .select({
+          flyAppId: chatbots.flyAppId,
+        })
+        .from(chatbots)
+        .where(eq(chatbots.telegramBotToken, telegramBotToken));
+
+      if (existingBots.length > 0) {
+        for (const existingBot of existingBots) {
+          if (existingBot.flyAppId) {
+            console.log(`Destroying ${existingBot.flyAppId}`);
+            execSync(`fly apps destroy ${existingBot.flyAppId} --yes`, {
+              stdio: "inherit",
+            });
+          }
+        }
+      }
+
+      const flyAppName = `app-${botId}`;
       execSync(
-        `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy`,
+        `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
         { cwd: packageJsonDirectory, stdio: "inherit" }
       );
+
+      await db.update(chatbots).set({
+        flyAppId: flyAppName,
+      });
 
       const flyTomlPath = path.join(packageJsonDirectory, "fly.toml");
       const flyTomlContent = fs.readFileSync(flyTomlPath, "utf8");
@@ -251,6 +264,7 @@ CMD [ "bun", "run", "start" ]
       return reply.status(500).send({ error: "Failed to compile bot" });
     }
   } catch (error) {
+    console.error("Error generating  bot:", error);
     return reply.status(400).send({ error: "Bad request" });
   }
 });

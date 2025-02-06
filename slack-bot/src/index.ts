@@ -11,7 +11,7 @@ config();
 const db = drizzle(process.env.DATABASE_URL!);
 
 let AGENT_API_HOST: string;
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   AGENT_API_HOST = "http://platform-muddy-meadow-938.fly.dev";
 } else {
   AGENT_API_HOST = "http://0.0.0.0:4444";
@@ -30,11 +30,13 @@ async function chatbotIteration({
   prompt,
   channelId,
   threadTs,
+  userId,
 }: {
   telegramBotToken: string;
   prompt: string;
   channelId: string;
   threadTs: string;
+  userId: string;
 }) {
   const response = await fetch(`${AGENT_API_HOST}/generate`, {
     method: "POST",
@@ -44,6 +46,7 @@ async function chatbotIteration({
     body: JSON.stringify({
       prompt,
       telegramBotToken,
+      userId,
     }),
   });
 
@@ -57,7 +60,7 @@ async function chatbotIteration({
         id: string;
         name: string;
         // more stuff here
-      },
+      };
       compileResult: {
         status: string;
         message: string;
@@ -66,9 +69,9 @@ async function chatbotIteration({
             name: string;
             description: string;
             examples: Array<string>;
-          }>
-        }
-      }
+          }>;
+        };
+      };
     } = await response.json();
     console.log("generateResult", generateResult);
 
@@ -101,40 +104,54 @@ app.message("", async ({ event, logger }) => {
   } else {
     return;
   }
-  
+
   let prompt;
   if ("text" in event) {
     prompt = event.text;
-    
+
     if (!prompt) {
       return;
     }
   } else {
     return;
   }
-  
-  const threadResult = await db.select().from(threads).where(eq(threads.threadTs, threadTs));
-  
+
+  if (!event.user) {
+    return;
+  }
+
+  const threadResult = await db
+    .select()
+    .from(threads)
+    .where(eq(threads.threadTs, threadTs));
+
   console.log("threadResult", threadResult);
-  
+
   if (threadResult.length !== 1) {
     return;
   }
-  
+
   const thread = threadResult[0];
-  
+
   chatbotIteration({
     telegramBotToken: thread.chatbotToken,
     prompt,
     channelId: event.channel,
     threadTs: thread.threadTs,
+    userId: event.user,
   });
 });
 
 app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
   await ack();
 
-  if (body.user_id !== "U0775H2TR9U" && body.user_id !== "U087XSZ2XHR" && body.user_id !== "U087XSWNS3C" && body.user_id !== "U07HP8X7LN5" && body.user_id !== "U07K72G2J76") {
+  if (
+    body.user_id !== "U0775H2TR9U" &&
+    body.user_id !== "U087XSZ2XHR" &&
+    body.user_id !== "U087XSWNS3C" &&
+    body.user_id !== "U07HP8X7LN5" &&
+    body.user_id !== "U07K72G2J76"
+  ) {
     await app.client.chat.postMessage({
       channel: body.channel_id,
       text: "I only talk to Mr. Gomes., Evgenii, Igor, Pedro and Holt",
@@ -155,11 +172,11 @@ app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
     
 Please iterate with me on this thread 🧵`,
   });
-  
+
   if (!msg.ts) {
     throw new Error("Message not found");
   }
-  
+
   await db.insert(threads).values({
     threadTs: msg.ts,
     chatbotToken: botToken,
@@ -177,6 +194,7 @@ Please iterate with me on this thread 🧵`,
     prompt,
     channelId: body.channel_id,
     threadTs: msg.ts,
+    userId: body.user_id,
   });
 });
 
