@@ -221,12 +221,16 @@ CMD [ "bun", "run", "start" ]
         for (const existingBot of existingBots) {
           if (existingBot.flyAppId) {
             console.log(`Destroying ${existingBot.flyAppId}`);
-            execSync(
-              `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}'`,
-              {
-                stdio: "inherit",
-              }
-            );
+            try {
+              execSync(
+                `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}'`,
+                {
+                  stdio: "inherit",
+                }
+              );
+            } catch (error) {
+              console.error("Error destroying fly app:", error);
+            }
           }
         }
       }
