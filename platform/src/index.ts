@@ -215,13 +215,18 @@ CMD [ "bun", "run", "start" ]
         .from(chatbots)
         .where(eq(chatbots.telegramBotToken, telegramBotToken));
 
+      console.log("existingBots", existingBots);
+
       if (existingBots.length > 0) {
         for (const existingBot of existingBots) {
           if (existingBot.flyAppId) {
             console.log(`Destroying ${existingBot.flyAppId}`);
-            execSync(`fly apps destroy ${existingBot.flyAppId} --yes`, {
-              stdio: "inherit",
-            });
+            execSync(
+              `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}'`,
+              {
+                stdio: "inherit",
+              }
+            );
           }
         }
       }
