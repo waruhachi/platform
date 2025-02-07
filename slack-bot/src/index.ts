@@ -1,7 +1,7 @@
 import { App, LogLevel, subtype } from "@slack/bolt";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { threads } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 import { config } from "dotenv";
 
@@ -123,7 +123,7 @@ app.message("", async ({ event, logger }) => {
   const threadResult = await db
     .select()
     .from(threads)
-    .where(eq(threads.threadTs, threadTs));
+    .where(and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user)));
 
   console.log("threadResult", threadResult);
 
@@ -145,18 +145,7 @@ app.message("", async ({ event, logger }) => {
 app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
   await ack();
 
-  if (
-    body.user_id !== "U0775H2TR9U" &&
-    body.user_id !== "U087XSZ2XHR" &&
-    body.user_id !== "U087XSWNS3C" &&
-    body.user_id !== "U07HP8X7LN5" &&
-    body.user_id !== "U07K72G2J76"
-  ) {
-    await app.client.chat.postMessage({
-      channel: body.channel_id,
-      text: "I only talk to Mr. Gomes., Evgenii, Igor, Pedro and Holt",
-    });
-
+  if (body.channel_id !== "C089K878WAY") {
     return;
   }
 
@@ -180,6 +169,7 @@ Please iterate with me on this thread 🧵`,
   await db.insert(threads).values({
     threadTs: msg.ts,
     chatbotToken: botToken,
+    authorId: body.user_id,
   });
 
   // Post update on thread
