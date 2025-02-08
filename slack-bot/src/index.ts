@@ -94,6 +94,46 @@ Functions and their examples: ${JSON.stringify(generateResult.compileResult.meta
   }
 }
 
+async function handleBotGeneration({
+  channelId,
+  userId,
+  prompt,
+  botToken,
+  client,
+  threadTs,
+}: {
+  channelId: string;
+  userId: string;
+  prompt: string;
+  botToken: string;
+  client: any;
+  threadTs: string;
+}) {
+  const msg = await client.chat.postMessage({
+    channel: channelId,
+    thread_ts: threadTs,
+    text: `I'm going to start generating a bot for you. This will take a few minutes.`,
+  });
+
+  if (!msg.ts) {
+    throw new Error("Message not found");
+  }
+
+  await db.insert(threads).values({
+    threadTs: msg.ts,
+    chatbotToken: botToken,
+    authorId: userId,
+  });
+
+  chatbotIteration({
+    telegramBotToken: botToken,
+    prompt,
+    channelId,
+    threadTs: msg.ts,
+    userId,
+  });
+}
+
 app.message("", async ({ event, logger }) => {
   let threadTs: string;
   if ("thread_ts" in event) {
@@ -123,7 +163,9 @@ app.message("", async ({ event, logger }) => {
   const threadResult = await db
     .select()
     .from(threads)
-    .where(and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user)));
+    .where(
+      and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user))
+    );
 
   console.log("threadResult", threadResult);
 
@@ -142,49 +184,152 @@ app.message("", async ({ event, logger }) => {
   });
 });
 
-app.command("/generate-telegram-bot", async ({ ack, body, logger }) => {
-  await ack();
-
-  if (body.channel_id !== "C089K878WAY") {
+app.event("message", async ({ event, client, message }) => {
+  if (event.channel !== "C089K878WAY") {
     return;
   }
 
-  // Get the text after the command and split it into arguments
-  const args = body.text.split(" ");
-  const botToken = args[0];
-  const prompt = args.slice(1).join(" ");
-
-  // Send message with both arguments
-  const msg = await app.client.chat.postMessage({
-    channel: body.channel_id,
-    text: `Let's generate a Telegram chatbot! 🤖
-    
-Please iterate with me on this thread 🧵`,
-  });
-
-  if (!msg.ts) {
-    throw new Error("Message not found");
+  let eventText: string;
+  if ("text" in event && event.text) {
+    eventText = event.text;
+    if (!eventText) {
+      return;
+    }
+  } else {
+    return;
   }
 
-  await db.insert(threads).values({
-    threadTs: msg.ts,
-    chatbotToken: botToken,
-    authorId: body.user_id,
+  if (!eventText.startsWith("<@U08926LS0UF>")) {
+    return;
+  }
+
+  const prompt = eventText.replace(/<@[A-Z0-9]+>/, "").trim();
+
+  await client.chat.postMessage({
+    channel: event.channel,
+    thread_ts: event.ts,
+    text: "Let's create a Telegram bot with your prompt!",
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Your prompt:*\n${prompt}`,
+        },
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "Create Bot",
+              emoji: true,
+            },
+            action_id: "open_bot_modal",
+            value: JSON.stringify({
+              prompt,
+              channelId: event.channel,
+              userId: event.user,
+              threadTs: event.ts,
+            }),
+          },
+        ],
+      },
+    ],
+  });
+});
+
+// Add this handler for the button click
+app.action("open_bot_modal", async ({ ack, body, client }) => {
+  await ack();
+
+  const { prompt, channelId, userId, threadTs } = JSON.parse(
+    body.actions[0].value
+  );
+
+  await client.views.open({
+    trigger_id: body.trigger_id,
+    view: {
+      type: "modal",
+      callback_id: "bot_token_modal",
+      title: {
+        type: "plain_text",
+        text: "Enter Bot Token",
+      },
+      blocks: [
+        {
+          type: "input",
+          block_id: "token_block",
+          element: {
+            type: "plain_text_input",
+            action_id: "token_input",
+            placeholder: {
+              type: "plain_text",
+              text: "Enter your Telegram bot token",
+            },
+          },
+          label: {
+            type: "plain_text",
+            text: "Bot Token",
+          },
+        },
+      ],
+      private_metadata: JSON.stringify({
+        prompt,
+        channelId,
+        userId,
+        threadTs,
+        messageTs: body.container.message_ts,
+      }),
+      submit: {
+        type: "plain_text",
+        text: "Submit",
+      },
+    },
+  });
+});
+
+// Add this handler to process the modal submission
+app.view("bot_token_modal", async ({ ack, body, view, client }) => {
+  await ack();
+
+  const { prompt, channelId, userId, threadTs, messageTs } = JSON.parse(
+    view.private_metadata
+  );
+  const botToken = view.state.values.token_block.token_input.value;
+
+  if (!botToken) {
+    await client.chat.postMessage({
+      channel: channelId,
+      text: "Please enter a valid bot token.",
+    });
+    return;
+  }
+
+  // Update the message with a disabled button
+  await client.chat.update({
+    channel: channelId,
+    ts: messageTs,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Your prompt:*\n${prompt}`,
+        },
+      },
+    ],
   });
 
-  // Post update on thread
-  await app.client.chat.postMessage({
-    channel: body.channel_id,
-    thread_ts: msg.ts,
-    text: `Prompt: ${prompt}`,
-  });
-
-  chatbotIteration({
-    telegramBotToken: botToken,
+  await handleBotGeneration({
+    channelId,
+    userId,
     prompt,
-    channelId: body.channel_id,
-    threadTs: msg.ts,
-    userId: body.user_id,
+    botToken,
+    client,
+    threadTs: threadTs,
   });
 });
 
