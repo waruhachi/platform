@@ -31,12 +31,14 @@ async function chatbotIteration({
   channelId,
   threadTs,
   userId,
+  useStaging,
 }: {
   telegramBotToken: string;
   prompt: string;
   channelId: string;
   threadTs: string;
   userId: string;
+  useStaging: boolean;
 }) {
   const response = await fetch(`${AGENT_API_HOST}/generate`, {
     method: "POST",
@@ -47,6 +49,7 @@ async function chatbotIteration({
       prompt,
       telegramBotToken,
       userId,
+      useStaging,
     }),
   });
 
@@ -101,6 +104,7 @@ async function handleBotGeneration({
   botToken,
   client,
   threadTs,
+  useStaging,
 }: {
   channelId: string;
   userId: string;
@@ -108,6 +112,7 @@ async function handleBotGeneration({
   botToken: string;
   client: any;
   threadTs: string;
+  useStaging: boolean;
 }) {
   const msg = await client.chat.postMessage({
     channel: channelId,
@@ -131,6 +136,7 @@ async function handleBotGeneration({
     channelId,
     threadTs: msg.ts,
     userId,
+    useStaging,
   });
 }
 
@@ -181,6 +187,7 @@ app.message("", async ({ event, logger }) => {
     channelId: event.channel,
     threadTs: thread.threadTs,
     userId: event.user,
+    useStaging,
   });
 });
 
@@ -275,6 +282,27 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
             text: "Bot Token",
           },
         },
+        {
+          type: "section",
+          block_id: "staging_block",
+          text: {
+            type: "mrkdwn",
+            text: "*Environment*",
+          },
+          accessory: {
+            type: "checkboxes",
+            action_id: "staging_checkbox",
+            options: [
+              {
+                text: {
+                  type: "plain_text",
+                  text: "Use staging",
+                },
+                value: "use_staging",
+              },
+            ],
+          },
+        },
       ],
       private_metadata: JSON.stringify({
         prompt,
@@ -299,6 +327,9 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     view.private_metadata
   );
   const botToken = view.state.values.token_block.token_input.value;
+  const useStaging =
+    view.state.values.staging_block.staging_checkbox.selected_options.length >
+    0;
 
   if (!botToken) {
     await client.chat.postMessage({
@@ -330,6 +361,7 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     botToken,
     client,
     threadTs: threadTs,
+    useStaging,
   });
 });
 

@@ -61,10 +61,11 @@ const db = drizzle(process.env.DATABASE_URL!);
 
 app.post("/generate", async (request, reply) => {
   try {
-    const { prompt, telegramBotToken, userId } = request.body as {
+    const { prompt, telegramBotToken, userId, useStaging } = request.body as {
       prompt: string;
       telegramBotToken: string;
       userId: string;
+      useStaging: boolean;
     };
 
     const botId = uuidv4();
@@ -82,7 +83,11 @@ app.post("/generate", async (request, reply) => {
       .returning();
 
     try {
-      const compileResponse = await fetch("http://44.244.252.49:8080/compile", {
+      let AGENT_API_URL = useStaging
+        ? "http://44.244.252.49:8080"
+        : "http://44.244.252.49:8080";
+
+      const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
