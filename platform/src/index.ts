@@ -176,6 +176,7 @@ app.post("/generate", async (request, reply) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
         },
+        signal: AbortSignal.timeout(600 * 1000), // 10 minutes timeout
         body: JSON.stringify({
           prompt,
           writeUrl,
