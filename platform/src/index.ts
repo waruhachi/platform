@@ -228,7 +228,7 @@ CMD [ "bun", "run", "start" ]
             console.log(`Destroying ${existingBot.flyAppId}`);
             try {
               execSync(
-                `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}'`,
+                `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
                 {
                   stdio: "inherit",
                 }
