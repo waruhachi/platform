@@ -14,7 +14,7 @@ import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import * as unzipper from "unzipper";
-import { eq } from "drizzle-orm";
+import { count, eq, getTableColumns, sql } from "drizzle-orm";
 
 config();
 
@@ -31,14 +31,19 @@ const neonClient = createApiClient({
   apiKey: process.env.NEON_API_KEY!,
 });
 
-async function createS3DirectoryWithPresignedUrls(
-  botId: string
-): Promise<{ writeUrl: string; readUrl: string }> {
+function getS3DirectoryParams(botId: string) {
   const key = `bots/${botId}/source_code.zip`;
   const baseParams = {
     Bucket: process.env.AWS_BUCKET_NAME!,
     Key: key,
   };
+  return baseParams
+}
+
+async function createS3DirectoryWithPresignedUrls(
+  botId: string
+): Promise<{ writeUrl: string; readUrl: string }> {
+  const baseParams = getS3DirectoryParams(botId)
 
   const writeCommand = new PutObjectCommand(baseParams);
   const readCommand = new GetObjectCommand(baseParams);
@@ -53,11 +58,89 @@ async function createS3DirectoryWithPresignedUrls(
   return { writeUrl, readUrl };
 }
 
+async function getReadPresignedUrls(
+  botId: string
+): Promise<{ readUrl: string }> {
+  const baseParams = getS3DirectoryParams(botId);
+
+  const readCommand = new GetObjectCommand(baseParams);
+
+  const readUrl = await getSignedUrl(s3Client, readCommand, {
+    expiresIn: 3600,
+  });
+
+  return { readUrl };
+}
+
 const app = fastify({
   logger: true,
 });
 
 const db = drizzle(process.env.DATABASE_URL!);
+
+app.get('/chatbots', async (request, reply) => {
+  const { limit = 10, page = 1 } = request.query as { limit?: number; page?: number };
+  
+  // Convert to numbers and validate
+  if (limit > 100) {
+    return reply.status(400).send({
+      error: 'Limit cannot exceed 100'
+    });
+  }
+  const pagesize = Math.min(Math.max(1, Number(limit)), 100); // Limit between 1 and 100
+  const pageNum = Math.max(1, Number(page));
+  const offset = (pageNum - 1) * pagesize;
+
+  const { telegramBotToken, ...columns } = getTableColumns(chatbots)
+
+  const countResultP = db
+    .select({ count: sql`count(*)` })
+    .from(chatbots);
+
+  const botsP = db
+    .select(columns)
+    .from(chatbots)
+    .orderBy(chatbots.createdAt)
+    .limit(pagesize)
+    .offset(offset);
+
+  const [countResult, bots] = await Promise.all([countResultP, botsP]);
+
+  const totalCount = Number(countResult[0]?.count || 0)
+
+  return {
+    data: bots,
+    pagination: {
+      total: totalCount,
+      page: pageNum,
+      limit: pagesize,
+      totalPages: Math.ceil(totalCount / pagesize)
+    }
+  };
+})
+
+app.get('/chatbots/:id', async (request, reply) => {
+  const { id } = request.params as { id:string }
+  const { telegramBotToken, ...columns } = getTableColumns(chatbots)
+  const bot = await db.select(columns).from(chatbots).where(eq(chatbots.id, id))
+  if (!bot) {
+    return reply.status(404).send({
+      error: 'Chatbot not found'
+    });
+  }
+  return bot
+})
+
+app.get('/chatbots/:id/read-url', async (request, reply) => {
+  const { id } = request.params as { id:string }
+  const bot = await db.select({}).from(chatbots).where(eq(chatbots.id, id))
+  if (!bot) {
+    return reply.status(404).send({
+      error: 'Chatbot not found'
+    });
+  }
+  return getReadPresignedUrls(id)
+})
 
 app.post("/generate", async (request, reply) => {
   try {
