@@ -5,9 +5,7 @@ import type * as React from "react";
 export default function ProvidersServer({ children }: { children: React.ReactNode }) {
   return (
     <StackProvider app={stackServerApp}>
-        <StackTheme>
-        {children}
-        </StackTheme>
+      <StackTheme>{children}</StackTheme>
     </StackProvider>
   );
 }

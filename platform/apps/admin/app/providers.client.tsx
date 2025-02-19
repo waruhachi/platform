@@ -3,14 +3,13 @@ import type * as React from "react";
 import { Toaster } from "@repo/design/shadcn/toaster";
 import { SWRConfig } from "swr";
 import { ConfigProvider } from "@repo/design/components/providers/config-provider";
-import { sidebarMenu, headerMenu } from "../settings/menu";
+import { sidebarMenu } from "../settings/menu";
 
 export default function ProvidersClient({ children }: { children: React.ReactNode }) {
   return (
     <ConfigProvider
       value={{
         sidebarMenu,
-        headerMenu,
       }}
     >
       <SWRConfig
@@ -20,7 +19,7 @@ export default function ProvidersClient({ children }: { children: React.ReactNod
           },
         }}
       >
-            {children}
+        {children}
       </SWRConfig>
       <Toaster />
     </ConfigProvider>
