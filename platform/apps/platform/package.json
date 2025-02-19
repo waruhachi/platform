@@ -3,8 +3,6 @@
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@flydotio/dockerfile": "^0.7.4",
-    "@types/adm-zip": "^0.5.7",
     "@types/bun": "latest",
     "@types/pg": "^8.11.11",
     "@types/unzipper": "^0.10.10",
@@ -25,6 +23,7 @@
     "@aws-sdk/s3-request-presigner": "^3.735.0",
     "@neondatabase/api-client": "^1.11.5",
     "@neondatabase/serverless": "^0.10.4",
+    "@repo/core": "workspace:*",
     "aws-sdk": "^2.1692.0",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.39.0",
