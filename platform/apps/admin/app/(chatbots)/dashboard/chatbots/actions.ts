@@ -23,6 +23,7 @@ export async function getAllChatbots({
     limit: pageSize.toString(),
   });
 
+  console.log("accessToken", accessToken);
   const response = await fetch(`${PLATFORM_API_URL}/chatbots?${queryParams}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
