@@ -30,7 +30,7 @@ export async function getAllChatbots({
     },
   });
   if (!response.ok) {
-    throw new Error(`Failed to fetch chatbots: ${response}`);
+    throw new Error(`Failed to fetch chatbots: ${response.statusText} ${response.text}`);
   }
   const data = await response.json();
   return data;
