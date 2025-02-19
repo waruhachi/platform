@@ -3,9 +3,9 @@
 import { Chatbot, Paginated, ReadUrl } from "@repo/core/types/api";
 import { env } from "@/env.mjs";
 import JSZip from "jszip";
+import { stackServerApp } from "@repo/auth";
 
 const PLATFORM_API_URL = env.PLATFORM_API_URL;
-const PLATFORM_INTERNAL_API_KEY = env.PLATFORM_INTERNAL_API_KEY;
 
 export async function getAllChatbots({
   page = 1,
@@ -15,6 +15,9 @@ export async function getAllChatbots({
   page?: number;
   pageSize?: number;
 } = {}): Promise<Paginated<Chatbot>> {
+  const user = await stackServerApp.getUser();
+  const { accessToken } = await user.getAuthJson();
+
   const queryParams = new URLSearchParams({
     page: page.toString(),
     limit: pageSize.toString(),
@@ -22,7 +25,7 @@ export async function getAllChatbots({
 
   const response = await fetch(`${PLATFORM_API_URL}/chatbots?${queryParams}`, {
     headers: {
-      Authorization: `Bearer ${PLATFORM_INTERNAL_API_KEY}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
   if (!response.ok) {
@@ -34,11 +37,16 @@ export async function getAllChatbots({
 
 export async function getChatbotReadUrl(id: string): Promise<ReadUrl> {
   try {
-    const response = await fetch(`${PLATFORM_API_URL}/chatbots/${id}/read-url`, {
-      headers: {
-        Authorization: `Bearer ${PLATFORM_INTERNAL_API_KEY}`,
+    const user = await stackServerApp.getUser();
+    const { accessToken } = await user.getAuthJson();
+    const response = await fetch(
+      `${PLATFORM_API_URL}/chatbots/${id}/read-url`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       },
-    });
+    );
     if (!response.ok) {
       throw new Error("Failed to fetch chatbot read URL");
     }
@@ -51,9 +59,11 @@ export async function getChatbotReadUrl(id: string): Promise<ReadUrl> {
 
 export async function getChatbot(id: string): Promise<Chatbot | null> {
   try {
+    const user = await stackServerApp.getUser();
+    const { accessToken } = await user.getAuthJson();
     const response = await fetch(`${PLATFORM_API_URL}/chatbots/${id}`, {
       headers: {
-        Authorization: `Bearer ${PLATFORM_INTERNAL_API_KEY}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
@@ -134,7 +144,7 @@ export async function getChatbotCode(chatbotId: string) {
         promises.push(
           file.async("string").then((content) => {
             files[path] = content;
-          })
+          }),
         );
       }
     });

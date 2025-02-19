@@ -15,7 +15,9 @@ import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import * as unzipper from "unzipper";
 import { count, desc, eq, getTableColumns, sql } from "drizzle-orm";
-import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api"
+import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
+import * as jose from "jose";
+
 config();
 
 const s3Client = new S3Client({
@@ -30,21 +32,31 @@ const s3Client = new S3Client({
 const neonClient = createApiClient({
   apiKey: process.env.NEON_API_KEY!,
 });
+const jwks = jose.createRemoteJWKSet(
+  new URL(
+    `https://api.stack-auth.com/api/v1/projects/${process.env.STACK_PROJECT_ID}/.well-known/jwks.json`,
+  ),
+);
 
-function validateAuth(request: FastifyRequest, reply: FastifyReply) {
+async function validateAuth(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    reply.status(401).send({ error: 'Missing or invalid authorization header' });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    reply
+      .status(401)
+      .send({ error: "Missing or invalid authorization header" });
     return false;
   }
 
-  const token = authHeader.split(' ')[1];
-  if (token !== process.env.PLATFORM_INTERNAL_API_KEY) {
-    reply.status(401).send({ error: 'Invalid authorization token' });
+  const accessToken = authHeader.split(" ")[1];
+  try {
+    const { payload } = await jose.jwtVerify(accessToken, jwks);
+    console.log("Authenticated user with ID:", payload.sub);
+    return true;
+  } catch (error) {
+    console.error(error);
+    console.log("Invalid user");
     return false;
   }
-
-  return true;
 }
 
 function getS3DirectoryParams(botId: string) {
@@ -53,13 +65,13 @@ function getS3DirectoryParams(botId: string) {
     Bucket: process.env.AWS_BUCKET_NAME!,
     Key: key,
   };
-  return baseParams
+  return baseParams;
 }
 
 async function createS3DirectoryWithPresignedUrls(
-  botId: string
+  botId: string,
 ): Promise<{ writeUrl: string; readUrl: string }> {
-  const baseParams = getS3DirectoryParams(botId)
+  const baseParams = getS3DirectoryParams(botId);
 
   const writeCommand = new PutObjectCommand(baseParams);
   const readCommand = new GetObjectCommand(baseParams);
@@ -75,7 +87,7 @@ async function createS3DirectoryWithPresignedUrls(
 }
 
 async function getReadPresignedUrls(
-  botId: string
+  botId: string,
 ): Promise<{ readUrl: string }> {
   const baseParams = getS3DirectoryParams(botId);
 
@@ -94,28 +106,29 @@ const app = fastify({
 
 const db = drizzle(process.env.DATABASE_URL!);
 
-app.get('/chatbots', async (request, reply): Promise<Paginated<Chatbot>> => {
-  if (!validateAuth(request, reply)) {
-    reply.status(400).send({error: "Validation error"})
+app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
+  if (!(await validateAuth(request, reply))) {
+    reply.status(400).send({ error: "Validation error" });
+  }
+
+  const { limit = 10, page = 1 } = request.query as {
+    limit?: number;
+    page?: number;
   };
 
-  const { limit = 10, page = 1 } = request.query as { limit?: number; page?: number };
-  
   // Convert to numbers and validate
   if (limit > 100) {
     return reply.status(400).send({
-      error: 'Limit cannot exceed 100'
+      error: "Limit cannot exceed 100",
     });
   }
   const pagesize = Math.min(Math.max(1, Number(limit)), 100); // Limit between 1 and 100
   const pageNum = Math.max(1, Number(page));
   const offset = (pageNum - 1) * pagesize;
 
-  const { telegramBotToken, ...columns } = getTableColumns(chatbots)
+  const { telegramBotToken, ...columns } = getTableColumns(chatbots);
 
-  const countResultP = db
-    .select({ count: sql`count(*)` })
-    .from(chatbots);
+  const countResultP = db.select({ count: sql`count(*)` }).from(chatbots);
 
   const botsP = db
     .select(columns)
@@ -126,49 +139,54 @@ app.get('/chatbots', async (request, reply): Promise<Paginated<Chatbot>> => {
 
   const [countResult, bots] = await Promise.all([countResultP, botsP]);
 
-  const totalCount = Number(countResult[0]?.count || 0)
-
+  const totalCount = Number(countResult[0]?.count || 0);
   return {
     data: bots,
     pagination: {
       total: totalCount,
       page: pageNum,
       limit: pagesize,
-      totalPages: Math.ceil(totalCount / pagesize)
-    }
+      totalPages: Math.ceil(totalCount / pagesize),
+    },
   };
-})
+});
 
-app.get('/chatbots/:id', async (request, reply): Promise<Chatbot> => {
-  if (!validateAuth(request, reply)) {
-    reply.status(400).send({error: "Validation error"})
+app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
+  if (!(await validateAuth(request, reply))) {
+    reply.status(400).send({ error: "Validation error" });
   }
 
-  const { id } = request.params as { id:string }
-  const { telegramBotToken, ...columns } = getTableColumns(chatbots)
-  const bot = await db.select(columns).from(chatbots).where(eq(chatbots.id, id))
+  const { id } = request.params as { id: string };
+  const { telegramBotToken, ...columns } = getTableColumns(chatbots);
+  const bot = await db
+    .select(columns)
+    .from(chatbots)
+    .where(eq(chatbots.id, id));
   if (!bot || !bot.length) {
     return reply.status(404).send({
-      error: 'Chatbot not found'
+      error: "Chatbot not found",
     });
   }
-  return bot[0]
-})
+  return bot[0];
+});
 
-app.get('/chatbots/:id/read-url', async (request, reply): Promise<ReadUrl> => {
-  if (!validateAuth(request, reply)) {
-    reply.status(400).send({error: "Validation error"})
+app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
+  if (!(await validateAuth(request, reply))) {
+    reply.status(400).send({ error: "Validation error" });
   }
 
-  const { id } = request.params as { id:string }
-  const bot = await db.select({id: chatbots.id}).from(chatbots).where(eq(chatbots.id, id))
+  const { id } = request.params as { id: string };
+  const bot = await db
+    .select({ id: chatbots.id })
+    .from(chatbots)
+    .where(eq(chatbots.id, id));
   if (!bot && !bot?.[0]) {
     return reply.status(404).send({
-      error: 'Chatbot not found'
+      error: "Chatbot not found",
     });
   }
-  return getReadPresignedUrls(bot[0].id)
-})
+  return getReadPresignedUrls(bot[0].id);
+});
 
 app.post("/generate", async (request, reply) => {
   try {
@@ -256,7 +274,7 @@ app.post("/generate", async (request, reply) => {
       console.log("Extracted files:", files);
 
       const packageJsonPath = execSync(
-        `find ${extractDir} -name package.json -maxdepth 2 -print -quit`
+        `find ${extractDir} -name package.json -maxdepth 2 -print -quit`,
       )
         .toString()
         .trim();
@@ -321,7 +339,7 @@ COPY --from=build /app /app
 EXPOSE 3000
 
 CMD [ "bun", "run", "start" ]
-`
+`,
       );
 
       // Find existing app with `telegramBotToken`
@@ -343,7 +361,7 @@ CMD [ "bun", "run", "start" ]
                 `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
                 {
                   stdio: "inherit",
-                }
+                },
               );
             } catch (error) {
               console.error("Error destroying fly app:", error);
@@ -355,7 +373,7 @@ CMD [ "bun", "run", "start" ]
       const flyAppName = `app-${botId}`;
       execSync(
         `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
-        { cwd: packageJsonDirectory, stdio: "inherit" }
+        { cwd: packageJsonDirectory, stdio: "inherit" },
       );
 
       await db.update(chatbots).set({
@@ -366,13 +384,16 @@ CMD [ "bun", "run", "start" ]
       const flyTomlContent = fs.readFileSync(flyTomlPath, "utf8");
       const updatedContent = flyTomlContent.replace(
         "min_machines_running = 0",
-        "min_machines_running = 1"
+        "min_machines_running = 1",
       );
       fs.writeFileSync(flyTomlPath, updatedContent);
 
       execSync(
         `${flyBinary} deploy --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
-        { cwd: packageJsonDirectory, stdio: "inherit" }
+        {
+          cwd: packageJsonDirectory,
+          stdio: "inherit",
+        },
       );
 
       if (process.env.NODE_ENV === "production") {
