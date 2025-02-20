@@ -255,7 +255,7 @@ app.post("/generate", async (request, reply) => {
 
     try {
       let AGENT_API_URL = useStaging
-        ? "http://44.244.252.49:8080"
+        ? "http://18.237.53.81:8080"
         : "http://44.244.252.49:8080";
 
       const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
