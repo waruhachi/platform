@@ -14,7 +14,7 @@ import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import * as unzipper from "unzipper";
-import { count, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 
@@ -48,13 +48,48 @@ async function validateAuth(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const accessToken = authHeader.split(" ")[1];
+  
+  let payload;
   try {
-    const { payload } = await jose.jwtVerify(accessToken, jwks);
+    payload = (await jose.jwtVerify(accessToken, jwks)).payload;
+    console.log("Authenticated user with ID:", payload.sub);
+  } catch (error) {
+    console.error(error);
+    console.log("Invalid JWKS");
+    return false;
+  }
+  
+  if (!payload.sub) {
+    console.log("sub not found in JWT");
+    return false;
+  }
+
+  try {
+    const response = await fetch(`https://api.stack-auth.com/api/v1/users/${payload.sub}`, {
+      method: 'GET',
+      headers: {
+        'X-Stack-Project-Id': process.env.STACK_PROJECT_ID!,
+        'X-Stack-Access-Type': 'server',
+        'X-Stack-Publishable-Client-Key': 'pck_yvr527gycyyd2gjrdgzj5n32gyqd009fyt4h2ctwz9hz0',
+        'X-Stack-Secret-Server-Key': 'ssk_xzv5zcdfqj2wnzzq0twe91ppxy6pdv21ztbzcj2a6ya9g',
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch user data: ${response.statusText}`);
+      return false;
+    }
+    
+    const responseJson =  await response.json();
+    if (!responseJson.primary_email.endsWith("@neon.tech")) {
+      console.log("Invalid user email");
+      return false;
+    }
+    
     console.log("Authenticated user with ID:", payload.sub);
     return true;
   } catch (error) {
-    console.error(error);
-    console.log("Invalid user");
+    console.error("An error occurred calling the Stack Auth API:", error);
     return false;
   }
 }

@@ -23,9 +23,6 @@ export async function getAllChatbots({
     limit: pageSize.toString(),
   });
 
-  console.log("accessToken", accessToken);
-  console.log("PLATFORM_API_URL", PLATFORM_API_URL);
-  console.log("queryParams", queryParams.toString());
   const response = await fetch(`${PLATFORM_API_URL}/chatbots?${queryParams}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -33,7 +30,10 @@ export async function getAllChatbots({
   });
   if (!response.ok) {
     const responseText = await response.text();
-    throw new Error(`Failed to fetch chatbots: ${response.statusText} ${responseText}`);
+
+    throw new Error(
+      `Failed to fetch chatbots: ${response.statusText} ${responseText}`,
+    );
   }
   const data = await response.json();
   return data;

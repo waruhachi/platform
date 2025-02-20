@@ -21,6 +21,7 @@ primary_region = 'sjc'
   DEPLOYED_BOT_AWS_ACCESS_KEY_ID = 'AKIAVIOZFVR66M2VBFXA'
   DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY = '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'
   STACK_PROJECT_ID='760155e7-fb84-4096-9bf0-16495b18e9b1'
+  STACK_SERVER_KEY='ssk_hf4hnff355c2grwmg7b7a1tw52tdax66cwqbhk3bdyc58'
 
 [http_service]
   internal_port = 4444
