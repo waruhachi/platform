@@ -38,17 +38,20 @@ const jwks = jose.createRemoteJWKSet(
   ),
 );
 
-async function validateAuth(request: FastifyRequest, reply: FastifyReply) {
+async function validateAuth(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
   const authHeader = request.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     reply
       .status(401)
       .send({ error: "Missing or invalid authorization header" });
-    return false;
+    return;
   }
 
   const accessToken = authHeader.split(" ")[1];
-  
+
   let payload;
   try {
     payload = (await jose.jwtVerify(accessToken, jwks)).payload;
@@ -56,41 +59,51 @@ async function validateAuth(request: FastifyRequest, reply: FastifyReply) {
   } catch (error) {
     console.error(error);
     console.log("Invalid JWKS");
-    return false;
+    reply.status(401).send({ error: "Invalid authentication token" });
+    return;
   }
-  
+
   if (!payload.sub) {
     console.log("sub not found in JWT");
-    return false;
+    reply.status(401).send({ error: "Invalid authentication token" });
+    return;
   }
 
   try {
-    const response = await fetch(`https://api.stack-auth.com/api/v1/users/${payload.sub}`, {
-      method: 'GET',
-      headers: {
-        'X-Stack-Project-Id': process.env.STACK_PROJECT_ID!,
-        'X-Stack-Access-Type': 'server',
-        'X-Stack-Publishable-Client-Key': 'pck_yvr527gycyyd2gjrdgzj5n32gyqd009fyt4h2ctwz9hz0',
-        'X-Stack-Secret-Server-Key': 'ssk_xzv5zcdfqj2wnzzq0twe91ppxy6pdv21ztbzcj2a6ya9g',
-      }
-    });
-    
+    const response = await fetch(
+      `https://api.stack-auth.com/api/v1/users/${payload.sub}`,
+      {
+        method: "GET",
+        headers: {
+          "X-Stack-Project-Id": process.env.STACK_PROJECT_ID!,
+          "X-Stack-Access-Type": "server",
+          "X-Stack-Publishable-Client-Key":
+            "pck_yvr527gycyyd2gjrdgzj5n32gyqd009fyt4h2ctwz9hz0",
+          "X-Stack-Secret-Server-Key":
+            "ssk_xzv5zcdfqj2wnzzq0twe91ppxy6pdv21ztbzcj2a6ya9g",
+        },
+      },
+    );
+
     if (!response.ok) {
       console.error(`Failed to fetch user data: ${response.statusText}`);
-      return false;
+      reply.status(401).send({ error: "Failed to validate user" });
+      return;
     }
-    
-    const responseJson =  await response.json();
+
+    const responseJson = await response.json();
     if (!responseJson.primary_email.endsWith("@neon.tech")) {
       console.log("Invalid user email");
-      return false;
+      reply.status(403).send({ error: "Unauthorized email domain" });
+      return;
     }
-    
+
     console.log("Authenticated user with ID:", payload.sub);
-    return true;
+    return;
   } catch (error) {
     console.error("An error occurred calling the Stack Auth API:", error);
-    return false;
+    reply.status(500).send({ error: "Authentication service error" });
+    return;
   }
 }
 
@@ -142,9 +155,7 @@ const app = fastify({
 const db = drizzle(process.env.DATABASE_URL!);
 
 app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
-  if (!(await validateAuth(request, reply))) {
-    reply.status(400).send({ error: "Validation error" });
-  }
+  await validateAuth(request, reply);
 
   const { limit = 10, page = 1 } = request.query as {
     limit?: number;
@@ -187,9 +198,7 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
 });
 
 app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
-  if (!(await validateAuth(request, reply))) {
-    reply.status(400).send({ error: "Validation error" });
-  }
+  await validateAuth(request, reply);
 
   const { id } = request.params as { id: string };
   const { telegramBotToken, ...columns } = getTableColumns(chatbots);
@@ -206,9 +215,7 @@ app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
 });
 
 app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
-  if (!(await validateAuth(request, reply))) {
-    reply.status(400).send({ error: "Validation error" });
-  }
+  await validateAuth(request, reply);
 
   const { id } = request.params as { id: string };
   const bot = await db
