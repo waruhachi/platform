@@ -40,60 +40,74 @@ async function chatbotIteration({
   userId: string;
   useStaging: boolean;
 }) {
-  const response = await fetch(`${AGENT_API_HOST}/generate`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      telegramBotToken,
-      userId,
-      useStaging,
-    }),
-  });
+  try {
+    const response = await fetch(`${AGENT_API_HOST}/generate`, {
+      signal: AbortSignal.timeout(10 * 60 * 1000),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        telegramBotToken,
+        userId,
+        useStaging,
+      }),
+    });
 
-  console.log("generate endpoint returned", response);
+    console.log("generate endpoint returned", response);
 
-  if (response.ok) {
-    const generateResult: {
-      readUrl: string;
-      writeUrl: string;
-      newBot: {
-        id: string;
-        name: string;
-        // more stuff here
-      };
-      compileResult: {
-        status: string;
-        message: string;
-        metadata: {
-          functions: Array<{
-            name: string;
-            description: string;
-            examples: Array<string>;
-          }>;
+    if (response.ok) {
+      const generateResult: {
+        readUrl: string;
+        writeUrl: string;
+        newBot: {
+          id: string;
+          name: string;
+          // more stuff here
         };
-      };
-    } = await response.json();
-    console.log("generateResult", generateResult);
+        compileResult: {
+          status: string;
+          message: string;
+          metadata: {
+            functions: Array<{
+              name: string;
+              description: string;
+              examples: Array<string>;
+            }>;
+          };
+        };
+      } = await response.json();
+      console.log("generateResult", generateResult);
 
-    await app.client.chat.postMessage({
-      channel: channelId,
-      thread_ts: threadTs,
-      text: `✅ The bot has been successfully deployed, go and talk to it!
+      await app.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        text: `✅ The bot has been successfully deployed, go and talk to it!
 Download the code here: ${generateResult.readUrl}
 Status: ${generateResult.compileResult.status}
 Message: ${generateResult.compileResult.message}
       
 Functions and their examples: ${JSON.stringify(generateResult.compileResult.metadata.functions)}`,
-    });
-  } else {
-    await app.client.chat.postMessage({
-      channel: channelId,
-      thread_ts: threadTs,
-      text: "There was an error while deploying the bot",
-    });
+      });
+    } else {
+      await app.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        text: "There was an error while deploying the bot",
+      });
+    }
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      await app.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        text: "More than 10 minutes have passed and we have timed out.",
+      });
+      return;
+    }
+    // Re-throw other errors
+    throw error;
   }
 }
 
