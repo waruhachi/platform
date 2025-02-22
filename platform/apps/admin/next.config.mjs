@@ -10,6 +10,8 @@ const nextConfig = {
     tsconfigPath: "./tsconfig.build.json",
     ignoreBuildErrors: true,
   },
+  experimental: {
+    reactCompiler: true,
 };
 
 export default nextConfig;
