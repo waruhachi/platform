@@ -91,10 +91,12 @@ Message: ${generateResult.compileResult.message}
 Functions and their examples: ${JSON.stringify(generateResult.compileResult.metadata.functions)}`,
       });
     } else {
+      const errorMessage = await response.text();
+
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: "There was an error while deploying the bot",
+        text: `There was an error while deploying the bot: ${errorMessage}`,
       });
     }
   } catch (error) {
