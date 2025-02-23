@@ -450,11 +450,11 @@ CMD [ "bun", "run", "start" ]
       return reply.send({ newBot, writeUrl, readUrl, compileResult });
     } catch (error) {
       console.error("Error compiling bot:", error);
-      return reply.status(500).send({ error: "Failed to compile bot" });
+      return reply.status(500).send({ error: `Failed to compile bot: ${error}` });
     }
   } catch (error) {
     console.error("Error generating  bot:", error);
-    return reply.status(400).send({ error: "Bad request" });
+    return reply.status(400).send({ error: `Failed to generate bot: ${error}` });
   }
 });
 const start = async () => {
