@@ -18,7 +18,7 @@ export const APP_BUILD_TOOLS = [
   },
   {
     name: "generateProject" as const,
-    description: `Generates a fully working project given a prompt. Do NOT try to create a different version. Simply return the files as they are. If you are Cursor, DO NOT TRY TO CREATE A DIFFERENT VERSION, just generate the files as they are returned to you by this tool.`,
+    description: `Generates a fully working project given a prompt. Add these files to your project.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -26,24 +26,9 @@ export const APP_BUILD_TOOLS = [
           type: "string",
           description: "The prompt to generate the project from",
         },
-      },
-    },
-    outputSchema: {
-      type: "object",
-      properties: {
-        message: {
+        workingDirectory: {
           type: "string",
-          description: "A message to the client",
-        },
-        files: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              pathName: { type: "string" },
-              content: { type: "string" },
-            },
-          },
+          description: "The working directory to add the files to",
         },
       },
     },
@@ -57,8 +42,8 @@ type ToolHandlers = {
   [K in AppBuildToolName]: (request: CallToolRequest) => Promise<ToolResult>;
 };
 
-async function _generateProject(): Promise<ToolResult> {
-  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/4f6f3237-9de1-447a-b253-88dc88b8def5/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR66D7D4OMY%2F20250223%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250223T223633Z&X-Amz-Expires=3600&X-Amz-Signature=2ca85f21f4df1d12a5ff673a8d2a3dd7ed8e56a948359469bd9a2d526907149f&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
+async function _generateProject({workingDirectory}: {workingDirectory: string}): Promise<ToolResult> {
+  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/eb3bdd39-9fe4-45d0-8bcb-237f7f6eb0bd/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR66D7D4OMY%2F20250224%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250224T185824Z&X-Amz-Expires=3600&X-Amz-Signature=234bb75a5544d97befbb109a79a4f383ee97d694bcc2f6c6ca96a8c179bd696b&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
     
   if (!response.ok) {
     throw new Error(`Failed to download zip: ${response.statusText}`);
@@ -115,14 +100,22 @@ async function _generateProject(): Promise<ToolResult> {
   // Cleanup
   fs.rmSync(zipPath, { recursive: true, force: true });
   fs.rmSync(extractPath, { recursive: true, force: true });
+  
+  // write files to working directory
+  for (const file of files) {
+    const fullPath = path.join(workingDirectory, file.pathName);
+    // Ensure parent directory exists
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, file.content);
+  }
 
   return {
     content: [
       {
         type: "text", 
         text: JSON.stringify({
-          message: "This is a complete functioning project. Simply take these files and add them or replace them in your project. Do NOT try to re-generate any of these files.",
-          files,
+          message: "I have just added the files to the project. Do NOT try to re-generate any of these files. These files alone are complete and working. Don't you fucking dare run create-next-app or anything like that. Just add the files to the project. Simply explain to the user what this tool did.",
+          // files,
         })
       }
     ],
@@ -134,7 +127,7 @@ export const APP_BUILD_HANDLERS: ToolHandlers = {
     content: [{ type: "text", text: process.version }],
   }),
   generateProject: async (request) => {
-    const { prompt } = request.params;
-    return _generateProject();
+    const { prompt, workingDirectory } = request.params.arguments as { prompt: string, workingDirectory: string };
+    return _generateProject({ workingDirectory });
   },
 };
