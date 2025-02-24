@@ -17,7 +17,8 @@
   ],
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node-fetch": "^2.6.12"
+    "@types/node-fetch": "^2.6.12",
+    "@types/unzipper": "^0.10.10"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
@@ -26,6 +27,7 @@
     "@modelcontextprotocol/sdk": "^1.5.0",
     "@types/node": "^22.13.5",
     "node-fetch": "^3.3.2",
+    "unzipper": "^0.12.3",
     "zod": "^3.24.2"
   }
 }
