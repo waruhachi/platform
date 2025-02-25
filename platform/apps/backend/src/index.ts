@@ -78,9 +78,8 @@ async function validateAuth(
           "X-Stack-Project-Id": process.env.STACK_PROJECT_ID!,
           "X-Stack-Access-Type": "server",
           "X-Stack-Publishable-Client-Key":
-            "pck_yvr527gycyyd2gjrdgzj5n32gyqd009fyt4h2ctwz9hz0",
-          "X-Stack-Secret-Server-Key":
-            "ssk_xzv5zcdfqj2wnzzq0twe91ppxy6pdv21ztbzcj2a6ya9g",
+            process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY!,
+          "X-Stack-Secret-Server-Key": process.env.STACK_SECRET_SERVER_KEY!,
         },
       },
     );
