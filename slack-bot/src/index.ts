@@ -222,7 +222,7 @@ app.event("message", async ({ event, client, message }) => {
     return;
   }
 
-  if (!eventText.startsWith("<@U08926LS0UF>")) {
+  if (!eventText.startsWith("<@U08FLNSNFDE>")) {
     return;
   }
 
