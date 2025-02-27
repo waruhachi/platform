@@ -29,6 +29,13 @@
       "when": 1740686487180,
       "tag": "0003_superb_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1740696029045,
+      "tag": "0004_simple_jackpot",
+      "breakpoints": true
     }
   ]
 }

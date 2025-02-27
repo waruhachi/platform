@@ -7,4 +7,5 @@ export const threads = pgTable("threads", {
     authorId: text(), // slack user id
     chatbotId: uuid("chatbotId"),
     deployed: boolean("deployed").notNull().default(false),
+    useStaging: boolean("useStaging").notNull().default(false),
 });

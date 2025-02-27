@@ -69,8 +69,8 @@ async function chatbotIteration({
   useStaging: boolean;
 }) {
   try {
+    console.log("calling generate endpoint");
     const response = await fetch(`${BACKEND_API_HOST}/generate`, {
-      signal: AbortSignal.timeout(10 * 60 * 2 * 1000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,10 +106,20 @@ async function chatbotIteration({
           };
         };
       } = await response.json();
+      
       console.log("generateResult", generateResult);
       
+      const chatbotId = generateResult.newBot.id;
+      
+      // Update the initial message to include the chatbot ID
+      await app.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        text: `Bot generation in progress! Chatbot ID: ${chatbotId}`,
+      });
+      
       await db.update(threads).set({
-        chatbotId: generateResult.newBot.id,
+        chatbotId: chatbotId,
       }).where(eq(threads.threadTs, threadTs));
     } else {
       const errorMessage = await response.text();
@@ -121,6 +131,8 @@ async function chatbotIteration({
       });
     }
   } catch (error) {
+    console.error("generate endpoint error", error);
+
     if (error instanceof DOMException && error.name === "TimeoutError") {
       await app.client.chat.postMessage({
         channel: channelId,
@@ -151,10 +163,11 @@ async function handleBotGeneration({
   threadTs: string;
   useStaging: boolean;
 }) {
+  const stagingText = useStaging ? "to staging" : "to production";
   const msg = await client.chat.postMessage({
     channel: channelId,
     thread_ts: threadTs,
-    text: `I'm going to start generating a bot for you. This will take a few minutes.`,
+    text: `I'm going to start generating a bot for you ${stagingText}. This will take a few minutes.`,
   });
 
   if (!msg.ts) {
@@ -166,6 +179,7 @@ async function handleBotGeneration({
     chatbotToken: botToken,
     authorId: userId,
     channelId,
+    useStaging: useStaging, // Store the useStaging value
   });
 
   chatbotIteration({
@@ -225,7 +239,7 @@ app.message("", async ({ event, logger }) => {
     channelId: event.channel,
     threadTs: thread.threadTs,
     userId: event.user,
-    useStaging,
+    useStaging: thread.useStaging ?? false, // Use the stored useStaging value with a default
   });
 });
 

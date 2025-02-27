@@ -1,0 +1,1 @@
+ALTER TABLE "threads" ADD COLUMN "useStaging" boolean DEFAULT false NOT NULL;
