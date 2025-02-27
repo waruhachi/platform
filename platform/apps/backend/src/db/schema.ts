@@ -13,4 +13,5 @@ export const chatbots = pgTable("chatbots", {
   telegramBotToken: text(),
   flyAppId: text(),
   traceId: text(),
+  runMode: text("runMode").notNull().default("telegram"),
 });

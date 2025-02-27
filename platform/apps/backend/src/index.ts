@@ -175,7 +175,10 @@ async function deployBot({
   const extractDir = path.join(downloadDir, botId);
 
   const bot = await db
-    .select({ telegramBotToken: chatbots.telegramBotToken })
+    .select({
+      telegramBotToken: chatbots.telegramBotToken,
+      runMode: chatbots.runMode,
+    })
     .from(chatbots)
     .where(eq(chatbots.id, botId));
 
@@ -267,8 +270,25 @@ CMD [ "bun", "run", "start" ]
   );
 
   const flyAppName = `app-${botId}`;
+  const envVars = {
+    TELEGRAM_BOT_TOKEN:
+      bot[0].runMode === "http-server" ? null : bot[0].telegramBotToken,
+    APP_DATABASE_URL: connectionString,
+    AWS_ACCESS_KEY_ID: process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!,
+    AWS_SECRET_ACCESS_KEY: process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!,
+    PERPLEXITY_API_KEY: process.env.DEPLOYED_BOT_PERPLEXITY_API_KEY!,
+    RUN_MODE: bot[0].runMode,
+  };
+
+  let envVarsString = "";
+  for (const [key, value] of Object.entries(envVars)) {
+    if (value !== null) {
+      envVarsString += `--env ${key}='${value}' `;
+    }
+  }
+
   execSync(
-    `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${bot[0].telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --env PERPLEXITY_API_KEY='${process.env.DEPLOYED_BOT_PERPLEXITY_API_KEY!}' --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
+    `${flyBinary} launch -y ${envVarsString} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
   console.log("fly launch is over");
@@ -452,12 +472,14 @@ app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
 
 app.post("/generate", async (request, reply) => {
   try {
-    const { prompt, telegramBotToken, userId, useStaging } = request.body as {
-      prompt: string;
-      telegramBotToken: string;
-      userId: string;
-      useStaging: boolean;
-    };
+    const { prompt, telegramBotToken, userId, useStaging, runMode } =
+      request.body as {
+        prompt: string;
+        telegramBotToken: string;
+        userId: string;
+        useStaging: boolean;
+        runMode: string;
+      };
 
     const botId = uuidv4();
     const { writeUrl, readUrl } =
@@ -470,6 +492,7 @@ app.post("/generate", async (request, reply) => {
         name: prompt,
         ownerId: userId,
         telegramBotToken,
+        runMode,
       })
       .returning();
 

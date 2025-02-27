@@ -36,6 +36,13 @@
       "when": 1739895752339,
       "tag": "0004_bumpy_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1740700045688,
+      "tag": "0005_curved_glorian",
+      "breakpoints": true
     }
   ]
 }

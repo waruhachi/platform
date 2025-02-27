@@ -60,6 +60,7 @@ async function chatbotIteration({
   threadTs,
   userId,
   useStaging,
+  runMode,
 }: {
   telegramBotToken: string;
   prompt: string;
@@ -67,6 +68,7 @@ async function chatbotIteration({
   threadTs: string;
   userId: string;
   useStaging: boolean;
+  runMode: string;
 }) {
   try {
     console.log("calling generate endpoint");
@@ -80,6 +82,7 @@ async function chatbotIteration({
         telegramBotToken,
         userId,
         useStaging,
+        runMode,
       }),
     });
 
@@ -154,6 +157,7 @@ async function handleBotGeneration({
   client,
   threadTs,
   useStaging,
+  runMode,
 }: {
   channelId: string;
   userId: string;
@@ -162,12 +166,14 @@ async function handleBotGeneration({
   client: any;
   threadTs: string;
   useStaging: boolean;
+  runMode: string;
 }) {
   const stagingText = useStaging ? "to staging" : "to production";
+  const runModeText = runMode === "http" ? "HTTP" : "Telegram";
   const msg = await client.chat.postMessage({
     channel: channelId,
     thread_ts: threadTs,
-    text: `I'm going to start generating a bot for you ${stagingText}. This will take a few minutes.`,
+    text: `I'm going to start generating a ${runModeText} bot for you ${stagingText}. This will take a few minutes.`,
   });
 
   if (!msg.ts) {
@@ -189,6 +195,7 @@ async function handleBotGeneration({
     threadTs: msg.ts,
     userId,
     useStaging,
+    runMode,
   });
 }
 
@@ -240,6 +247,7 @@ app.message("", async ({ event, logger }) => {
     threadTs: thread.threadTs,
     userId: event.user,
     useStaging: thread.useStaging ?? false, // Use the stored useStaging value with a default
+    runMode: thread.runMode ?? "telegram", // Use the stored runMode value with a default
   });
 });
 
@@ -304,12 +312,14 @@ app.event("message", async ({ event, client, message }) => {
 app.action("open_bot_modal", async ({ ack, body, client }) => {
   await ack();
 
+  // Type assertion for body to access actions property
+  const actionBody = body as any;
   const { prompt, channelId, userId, threadTs } = JSON.parse(
-    body.actions[0].value
+    actionBody.actions[0].value
   );
 
   await client.views.open({
-    trigger_id: body.trigger_id,
+    trigger_id: actionBody.trigger_id,
     view: {
       type: "modal",
       callback_id: "bot_token_modal",
@@ -332,6 +342,41 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
           label: {
             type: "plain_text",
             text: "Bot Token",
+          },
+        },
+        {
+          type: "section",
+          block_id: "run_mode_block",
+          text: {
+            type: "mrkdwn",
+            text: "*Run Mode*",
+          },
+          accessory: {
+            type: "radio_buttons",
+            action_id: "run_mode_radio",
+            initial_option: {
+              text: {
+                type: "plain_text",
+                text: "Telegram",
+              },
+              value: "telegram",
+            },
+            options: [
+              {
+                text: {
+                  type: "plain_text",
+                  text: "Telegram",
+                },
+                value: "telegram",
+              },
+              {
+                text: {
+                  type: "plain_text",
+                  text: "HTTP",
+                },
+                value: "http-server",
+              },
+            ],
           },
         },
         {
@@ -361,7 +406,7 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
         channelId,
         userId,
         threadTs,
-        messageTs: body.container.message_ts,
+        messageTs: (actionBody.container as any).message_ts,
       }),
       submit: {
         type: "plain_text",
@@ -379,9 +424,11 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     view.private_metadata
   );
   const botToken = view.state.values.token_block.token_input.value;
-  const useStaging =
-    view.state.values.staging_block.staging_checkbox.selected_options.length >
-    0;
+  const selectedOptions = view.state.values.staging_block.staging_checkbox.selected_options;
+  const useStaging = selectedOptions && selectedOptions.length > 0 ? true : false;
+  
+  // Extract the selected run mode
+  const runMode = view.state.values.run_mode_block.run_mode_radio.selected_option?.value || "telegram";
 
   if (!botToken) {
     await client.chat.postMessage({
@@ -414,6 +461,7 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     client,
     threadTs: threadTs,
     useStaging,
+    runMode,
   });
 });
 
