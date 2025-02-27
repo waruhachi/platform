@@ -290,7 +290,7 @@ CMD [ "bun", "run", "start" ]
 
   await db.update(chatbots).set({
     flyAppId: flyAppName,
-  });
+  }).where(eq(chatbots.id, botId));
 
   if (process.env.NODE_ENV === "production") {
     if (fs.existsSync(downloadDir)) {
