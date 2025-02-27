@@ -53,7 +53,7 @@ async function validateAuth(
   reply: FastifyReply,
 ): Promise<void> {
   const authHeader = request.headers.authorization;
-  
+
   // special-case for slack-bot->backend communication
   if (authHeader === process.env.BACKEND_API_SECRET) {
     return;
@@ -271,6 +271,17 @@ CMD [ "bun", "run", "start" ]
     `${flyBinary} launch -y --env TELEGRAM_BOT_TOKEN=${bot[0].telegramBotToken} --env APP_DATABASE_URL='${connectionString}' --env AWS_ACCESS_KEY_ID=${process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!} --env AWS_SECRET_ACCESS_KEY=${process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!} --env PERPLEXITY_API_KEY='${process.env.DEPLOYED_BOT_PERPLEXITY_API_KEY!}' --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
+  console.log("fly launch is over");
+  console.log(
+    `Updating chatbots table with flyAppId ${flyAppName} for bot ${botId}`,
+  );
+
+  await db
+    .update(chatbots)
+    .set({
+      flyAppId: flyAppName,
+    })
+    .where(eq(chatbots.id, botId));
 
   const flyTomlPath = path.join(packageJsonDirectory, "fly.toml");
   const flyTomlContent = fs.readFileSync(flyTomlPath, "utf8");
@@ -280,6 +291,7 @@ CMD [ "bun", "run", "start" ]
   );
   fs.writeFileSync(flyTomlPath, updatedContent);
 
+  console.log("deploying fly app");
   execSync(
     `${flyBinary} deploy --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
     {
@@ -287,10 +299,7 @@ CMD [ "bun", "run", "start" ]
       stdio: "inherit",
     },
   );
-
-  await db.update(chatbots).set({
-    flyAppId: flyAppName,
-  }).where(eq(chatbots.id, botId));
+  console.log("fly deploy is over");
 
   if (process.env.NODE_ENV === "production") {
     if (fs.existsSync(downloadDir)) {
