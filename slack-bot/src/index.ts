@@ -165,6 +165,7 @@ async function handleBotGeneration({
     threadTs: msg.ts,
     chatbotToken: botToken,
     authorId: userId,
+    channelId,
   });
 
   chatbotIteration({
