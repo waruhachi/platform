@@ -28,7 +28,7 @@ export const APP_BUILD_TOOLS = [
         },
         workingDirectory: {
           type: "string",
-          description: "The working directory to add the files to",
+          description: "The absolute path to the working directory to add the files to",
         },
       },
     },
@@ -43,7 +43,7 @@ type ToolHandlers = {
 };
 
 async function _generateProject({workingDirectory}: {workingDirectory: string}): Promise<ToolResult> {
-  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/eb3bdd39-9fe4-45d0-8bcb-237f7f6eb0bd/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR66D7D4OMY%2F20250224%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250224T185824Z&X-Amz-Expires=3600&X-Amz-Signature=234bb75a5544d97befbb109a79a4f383ee97d694bcc2f6c6ca96a8c179bd696b&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
+  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/41c51527-59df-4e0e-9fa4-16188a3c0865/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR6YKSCWIU5%2F20250226%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250226T170247Z&X-Amz-Expires=3600&X-Amz-Signature=8d65cc8f796c6152ad183c402e87ec655a3af1c4950f55c0752eeffebe526ede&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
     
   if (!response.ok) {
     throw new Error(`Failed to download zip: ${response.statusText}`);
