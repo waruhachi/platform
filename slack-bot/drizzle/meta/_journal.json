@@ -15,6 +15,20 @@
       "when": 1738884630245,
       "tag": "0001_dear_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1740686438993,
+      "tag": "0002_aromatic_sasquatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1740686487180,
+      "tag": "0003_superb_ironclad",
+      "breakpoints": true
     }
   ]
 }

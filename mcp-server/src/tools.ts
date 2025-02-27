@@ -43,7 +43,7 @@ type ToolHandlers = {
 };
 
 async function _generateProject({workingDirectory}: {workingDirectory: string}): Promise<ToolResult> {
-  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/41c51527-59df-4e0e-9fa4-16188a3c0865/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR6YKSCWIU5%2F20250226%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250226T170247Z&X-Amz-Expires=3600&X-Amz-Signature=8d65cc8f796c6152ad183c402e87ec655a3af1c4950f55c0752eeffebe526ede&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
+  const response = await fetch("https://chatbots-source.s3.us-east-1.amazonaws.com/bots/dd7fd805-65d0-4fcf-9e91-6317c7d066cf/source_code.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAVIOZFVR6YKSCWIU5%2F20250227%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250227T150812Z&X-Amz-Expires=3600&X-Amz-Signature=eb4caa50556e0bc87b5f22d11b37e98c8bc77fdff2b03e3f3d886e3ee2cfd04c&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject");
     
   if (!response.ok) {
     throw new Error(`Failed to download zip: ${response.statusText}`);

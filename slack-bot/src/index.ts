@@ -1,8 +1,8 @@
 import { App, LogLevel, subtype } from "@slack/bolt";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { threads } from "./db/schema";
-import { eq, and } from "drizzle-orm";
-
+import { eq, and, isNotNull } from "drizzle-orm";
+import { CronJob } from 'cron';
 import { config } from "dotenv";
 
 // Load environment variables from .env file
@@ -10,11 +10,11 @@ config();
 
 const db = drizzle(process.env.DATABASE_URL!);
 
-let AGENT_API_HOST: string;
+let BACKEND_API_HOST: string;
 if (process.env.NODE_ENV === "production") {
-  AGENT_API_HOST = "http://platform-muddy-meadow-938.fly.dev";
+  BACKEND_API_HOST = "https://platform-muddy-meadow-938.fly.dev";
 } else {
-  AGENT_API_HOST = "http://0.0.0.0:4444";
+  BACKEND_API_HOST = "http://0.0.0.0:4444";
 }
 
 const app = new App({
@@ -24,6 +24,34 @@ const app = new App({
   logLevel: LogLevel.DEBUG,
   socketMode: true,
 });
+
+const job = CronJob.from({
+	cronTime: '*/30 * * * * *', // every 30 seconds
+	onTick: async function () {
+    const undeployedBots = await db.select().from(threads).where(and(eq(threads.deployed, false), isNotNull(threads.chatbotId)));
+
+    for (const bot of undeployedBots) {
+      const botStatus = await fetch(`${BACKEND_API_HOST}/${bot.chatbotId}`);
+      const botStatusJson = await botStatus.json();
+
+      if (botStatusJson.flyAppId && bot.channelId) {
+        await app.client.chat.postMessage({
+          channel: bot.channelId,
+          thread_ts: bot.threadTs,
+          text: `✅ The bot has been successfully deployed, go and talk to it!
+  Download the code here: ${botStatusJson.readUrl}`
+        });
+        
+        await db.update(threads).set({
+          deployed: true,
+        }).where(eq(threads.threadTs, bot.threadTs));
+      }
+    }
+	},
+	start: true,
+});
+
+job.start();
 
 async function chatbotIteration({
   telegramBotToken,
@@ -41,8 +69,8 @@ async function chatbotIteration({
   useStaging: boolean;
 }) {
   try {
-    const response = await fetch(`${AGENT_API_HOST}/generate`, {
-      signal: AbortSignal.timeout(10 * 60 * 1000),
+    const response = await fetch(`${BACKEND_API_HOST}/generate`, {
+      signal: AbortSignal.timeout(10 * 60 * 2 * 1000),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -79,17 +107,10 @@ async function chatbotIteration({
         };
       } = await response.json();
       console.log("generateResult", generateResult);
-
-      await app.client.chat.postMessage({
-        channel: channelId,
-        thread_ts: threadTs,
-        text: `✅ The bot has been successfully deployed, go and talk to it!
-Download the code here: ${generateResult.readUrl}
-Status: ${generateResult.compileResult.status}
-Message: ${generateResult.compileResult.message}
       
-Functions and their examples: ${JSON.stringify(generateResult.compileResult.metadata.functions)}`,
-      });
+      await db.update(threads).set({
+        chatbotId: generateResult.newBot.id,
+      }).where(eq(threads.threadTs, threadTs));
     } else {
       const errorMessage = await response.text();
 
