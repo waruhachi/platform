@@ -208,7 +208,7 @@ async function deployBot({
   console.log("Extracted files:", files);
 
   const packageJsonPath = execSync(
-    `find ${extractDir} -name package.json -maxdepth 2 -print -quit`,
+    `find ${extractDir} -name package.json -maxdepth 3 -print -quit`,
   )
     .toString()
     .trim();
