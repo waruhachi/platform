@@ -1,0 +1,1 @@
+ALTER TABLE "threads" ADD COLUMN "runMode" text DEFAULT 'telegram' NOT NULL;
