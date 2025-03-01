@@ -8,4 +8,5 @@ export const threads = pgTable("threads", {
     chatbotId: uuid("chatbotId"),
     deployed: boolean("deployed").notNull().default(false),
     useStaging: boolean("useStaging").notNull().default(false),
+    runMode: text("runMode").notNull().default("telegram"),
 });

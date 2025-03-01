@@ -36,6 +36,13 @@
       "when": 1740696029045,
       "tag": "0004_simple_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1740851629120,
+      "tag": "0005_fat_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

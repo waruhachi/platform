@@ -79,7 +79,7 @@ async function chatbotIteration({
       },
       body: JSON.stringify({
         prompt,
-        telegramBotToken,
+        telegramBotToken: runMode === "telegram" ? telegramBotToken : undefined,
         userId,
         useStaging,
         runMode,
@@ -169,7 +169,7 @@ async function handleBotGeneration({
   runMode: string;
 }) {
   const stagingText = useStaging ? "to staging" : "to production";
-  const runModeText = runMode === "http" ? "HTTP" : "Telegram";
+  const runModeText = runMode === "http-server" ? "HTTP" : "Telegram";
   const msg = await client.chat.postMessage({
     channel: channelId,
     thread_ts: threadTs,
@@ -185,7 +185,8 @@ async function handleBotGeneration({
     chatbotToken: botToken,
     authorId: userId,
     channelId,
-    useStaging: useStaging, // Store the useStaging value
+    useStaging: useStaging,
+    runMode: runMode,
   });
 
   chatbotIteration({
@@ -318,6 +319,91 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
     actionBody.actions[0].value
   );
 
+  // Default run mode is telegram
+  const initialRunMode = "telegram";
+
+  // Create blocks array based on the initial run mode
+  const blocks: any[] = [
+    {
+      type: "section",
+      block_id: "run_mode_block",
+      text: {
+        type: "mrkdwn",
+        text: "*Run Mode*",
+      },
+      accessory: {
+        type: "radio_buttons",
+        action_id: "run_mode_radio",
+        initial_option: {
+          text: {
+            type: "plain_text",
+            text: "Telegram",
+          },
+          value: "telegram",
+        },
+        options: [
+          {
+            text: {
+              type: "plain_text",
+              text: "Telegram",
+            },
+            value: "telegram",
+          },
+          {
+            text: {
+              type: "plain_text",
+              text: "HTTP",
+            },
+            value: "http-server",
+          },
+        ],
+      },
+    }
+  ];
+
+  // Only add the token input block if Telegram mode is selected
+  if (initialRunMode === "telegram") {
+    blocks.push({
+      type: "input",
+      block_id: "token_block",
+      element: {
+        type: "plain_text_input",
+        action_id: "token_input",
+        placeholder: {
+          type: "plain_text",
+          text: "Enter your Telegram bot token",
+        },
+      },
+      label: {
+        type: "plain_text",
+        text: "Telegram Bot Token",
+      },
+    });
+  }
+
+  // Add the staging block
+  blocks.push({
+    type: "section",
+    block_id: "staging_block",
+    text: {
+      type: "mrkdwn",
+      text: "*Environment*",
+    },
+    accessory: {
+      type: "checkboxes",
+      action_id: "staging_checkbox",
+      options: [
+        {
+          text: {
+            type: "plain_text",
+            text: "Use staging",
+          },
+          value: "use_staging",
+        },
+      ],
+    },
+  });
+
   await client.views.open({
     trigger_id: actionBody.trigger_id,
     view: {
@@ -325,82 +411,9 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
       callback_id: "bot_token_modal",
       title: {
         type: "plain_text",
-        text: "Enter Bot Token",
+        text: "Configure Bot",
       },
-      blocks: [
-        {
-          type: "input",
-          block_id: "token_block",
-          element: {
-            type: "plain_text_input",
-            action_id: "token_input",
-            placeholder: {
-              type: "plain_text",
-              text: "Enter your Telegram bot token",
-            },
-          },
-          label: {
-            type: "plain_text",
-            text: "Bot Token",
-          },
-        },
-        {
-          type: "section",
-          block_id: "run_mode_block",
-          text: {
-            type: "mrkdwn",
-            text: "*Run Mode*",
-          },
-          accessory: {
-            type: "radio_buttons",
-            action_id: "run_mode_radio",
-            initial_option: {
-              text: {
-                type: "plain_text",
-                text: "Telegram",
-              },
-              value: "telegram",
-            },
-            options: [
-              {
-                text: {
-                  type: "plain_text",
-                  text: "Telegram",
-                },
-                value: "telegram",
-              },
-              {
-                text: {
-                  type: "plain_text",
-                  text: "HTTP",
-                },
-                value: "http-server",
-              },
-            ],
-          },
-        },
-        {
-          type: "section",
-          block_id: "staging_block",
-          text: {
-            type: "mrkdwn",
-            text: "*Environment*",
-          },
-          accessory: {
-            type: "checkboxes",
-            action_id: "staging_checkbox",
-            options: [
-              {
-                text: {
-                  type: "plain_text",
-                  text: "Use staging",
-                },
-                value: "use_staging",
-              },
-            ],
-          },
-        },
-      ],
+      blocks: blocks,
       private_metadata: JSON.stringify({
         prompt,
         channelId,
@@ -423,20 +436,33 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
   const { prompt, channelId, userId, threadTs, messageTs } = JSON.parse(
     view.private_metadata
   );
-  const botToken = view.state.values.token_block.token_input.value;
-  const selectedOptions = view.state.values.staging_block.staging_checkbox.selected_options;
-  const useStaging = selectedOptions && selectedOptions.length > 0 ? true : false;
   
   // Extract the selected run mode
   const runMode = view.state.values.run_mode_block.run_mode_radio.selected_option?.value || "telegram";
-
-  if (!botToken) {
-    await client.chat.postMessage({
-      channel: channelId,
-      text: "Please enter a valid bot token.",
-    });
-    return;
+  
+  // Get the token value if the token block exists
+  let botToken = "";
+  if (runMode === "telegram") {
+    // Check if token_block exists in the view state
+    const tokenBlock = view.state.values.token_block;
+    if (tokenBlock && tokenBlock.token_input) {
+      botToken = tokenBlock.token_input.value || "";
+    }
+    
+    // Validate token is provided for Telegram bots
+    if (!botToken) {
+      await ack({
+        response_action: "errors",
+        errors: {
+          token_block: "Please enter a valid Telegram bot token",
+        },
+      });
+      return;
+    }
   }
+
+  const selectedOptions = view.state.values.staging_block.staging_checkbox.selected_options;
+  const useStaging = selectedOptions && selectedOptions.length > 0 ? true : false;
 
   // Update the message with a disabled button
   await client.chat.update({
@@ -462,6 +488,82 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     threadTs: threadTs,
     useStaging,
     runMode,
+  });
+});
+
+// Add this handler for the run mode selection
+app.action("run_mode_radio", async ({ ack, body, client }) => {
+  await ack();
+
+  const actionBody = body as any;
+  const selectedRunMode = actionBody.actions[0].selected_option.value;
+  const viewId = actionBody.view.id;
+  const privateMetadata = actionBody.view.private_metadata;
+
+  // Get the current blocks from the view
+  const currentBlocks = actionBody.view.blocks;
+  
+  // Create new blocks array
+  const newBlocks = [];
+  
+  // Add the run mode block (always present)
+  const runModeBlock = currentBlocks.find((block: any) => block.block_id === "run_mode_block");
+  if (runModeBlock) {
+    newBlocks.push(runModeBlock);
+  }
+  
+  // Add the token block only if Telegram mode is selected
+  if (selectedRunMode === "telegram") {
+    // Check if token block already exists
+    const existingTokenBlock = currentBlocks.find((block: any) => block.block_id === "token_block");
+    
+    if (existingTokenBlock) {
+      // Use existing token block if it exists
+      newBlocks.push(existingTokenBlock);
+    } else {
+      // Create a new token block if it doesn't exist
+      newBlocks.push({
+        type: "input",
+        block_id: "token_block",
+        element: {
+          type: "plain_text_input",
+          action_id: "token_input",
+          placeholder: {
+            type: "plain_text",
+            text: "Enter your Telegram bot token",
+          },
+        },
+        label: {
+          type: "plain_text",
+          text: "Telegram Bot Token",
+        },
+      } as any); // Type assertion to avoid linter errors
+    }
+  }
+  
+  // Add the staging block (always present)
+  const stagingBlock = currentBlocks.find((block: any) => block.block_id === "staging_block");
+  if (stagingBlock) {
+    newBlocks.push(stagingBlock);
+  }
+
+  // Update the view with the new blocks
+  await client.views.update({
+    view_id: viewId,
+    view: {
+      type: "modal",
+      callback_id: "bot_token_modal",
+      title: {
+        type: "plain_text",
+        text: "Configure Bot",
+      },
+      blocks: newBlocks,
+      private_metadata: privateMetadata,
+      submit: {
+        type: "plain_text",
+        text: "Submit",
+      },
+    },
   });
 });
 
