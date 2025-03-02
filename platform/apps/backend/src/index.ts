@@ -361,6 +361,16 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
 
       console.log(`Successfully fetched source code for bot ${bot.id}`);
 
+      if (bot.runMode === "telegram") {
+        // Check if the bot has a valid Telegram token
+        if (!bot.telegramBotToken) {
+          console.log(
+            `Bot ${bot.id} is missing a Telegram token, skipping deployment`,
+          );
+          continue;
+        }
+      }
+
       // If we get here, the bot has source code, so we can proceed with deployment
       console.log(`Bot ${bot.id} is ready for deployment`);
 
