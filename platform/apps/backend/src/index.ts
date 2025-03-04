@@ -53,9 +53,10 @@ async function validateAuth(
   reply: FastifyReply,
 ): Promise<FastifyReply | undefined> {
   const authHeader = request.headers.authorization;
+  console.log("authHeader", authHeader);
 
   // special-case for slack-bot->backend communication
-  if (authHeader === process.env.BACKEND_API_SECRET) {
+  if (authHeader === `Bearer ${process.env.BACKEND_API_SECRET}`) {
     return;
   }
 
@@ -69,6 +70,7 @@ async function validateAuth(
 
   let payload;
   try {
+    console.log("jwks", jwks, "accessToken", accessToken);
     payload = (await jose.jwtVerify(accessToken, jwks)).payload;
     console.log("Authenticated user with ID:", payload.sub);
   } catch (error) {
@@ -241,7 +243,7 @@ RUN apt-get update -qq && \
 apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3
 
 # Install node modules
-COPY bun.lock package-lock.json package.json ./
+COPY package-lock.json package.json ./
 RUN bun install --ci
 
 

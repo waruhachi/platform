@@ -33,7 +33,7 @@ const job = CronJob.from({
     for (const bot of undeployedBots) {
       const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`, {
         headers: {
-          'Authorization': `${process.env.BACKEND_API_SECRET}`
+          'Authorization': `Bearer ${process.env.BACKEND_API_SECRET}`
         }
       });
       const botStatusJson = await botStatus.json();
