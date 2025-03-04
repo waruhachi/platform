@@ -31,7 +31,11 @@ const job = CronJob.from({
     const undeployedBots = await db.select().from(threads).where(and(eq(threads.deployed, false), isNotNull(threads.chatbotId)));
 
     for (const bot of undeployedBots) {
-      const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`);
+      const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`, {
+        headers: {
+          'Authorization': `${process.env.BACKEND_API_SECRET}`
+        }
+      });
       const botStatusJson = await botStatus.json();
 
       if (botStatusJson.flyAppId && bot.channelId) {

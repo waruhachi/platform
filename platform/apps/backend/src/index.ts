@@ -51,7 +51,7 @@ const jwks = jose.createRemoteJWKSet(
 async function validateAuth(
   request: FastifyRequest,
   reply: FastifyReply,
-): Promise<void> {
+): Promise<FastifyReply | undefined> {
   const authHeader = request.headers.authorization;
 
   // special-case for slack-bot->backend communication
@@ -60,10 +60,9 @@ async function validateAuth(
   }
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    reply
+    return reply
       .status(401)
       .send({ error: "Missing or invalid authorization header" });
-    return;
   }
 
   const accessToken = authHeader.split(" ")[1];
@@ -75,14 +74,12 @@ async function validateAuth(
   } catch (error) {
     console.error(error);
     console.log("Invalid JWKS");
-    reply.status(401).send({ error: "Invalid authentication token" });
-    return;
+    return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
   if (!payload.sub) {
     console.log("sub not found in JWT");
-    reply.status(401).send({ error: "Invalid authentication token" });
-    return;
+    return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
   try {
@@ -102,23 +99,19 @@ async function validateAuth(
 
     if (!response.ok) {
       console.error(`Failed to fetch user data: ${response.statusText}`);
-      reply.status(401).send({ error: "Failed to validate user" });
-      return;
+      return reply.status(401).send({ error: "Failed to validate user" });
     }
 
     const responseJson = await response.json();
     if (!responseJson.primary_email.endsWith("@neon.tech")) {
       console.log("Invalid user email");
-      reply.status(403).send({ error: "Unauthorized email domain" });
-      return;
+      return reply.status(403).send({ error: "Unauthorized email domain" });
     }
 
     console.log("Authenticated user with ID:", payload.sub);
-    return;
   } catch (error) {
     console.error("An error occurred calling the Stack Auth API:", error);
-    reply.status(500).send({ error: "Authentication service error" });
-    return;
+    return reply.status(500).send({ error: "Authentication service error" });
   }
 }
 
@@ -397,7 +390,10 @@ app.ready().then(() => {
 });
 
 app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
-  await validateAuth(request, reply);
+  const authCheck = await validateAuth(request, reply);
+  if (authCheck) {
+    return authCheck;
+  }
 
   const { limit = 10, page = 1 } = request.query as {
     limit?: number;
@@ -440,7 +436,12 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
 });
 
 app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
-  await validateAuth(request, reply);
+  console.log("/chatbots/:id request", request.params);
+  const authCheck = await validateAuth(request, reply);
+  console.log("authCheck", authCheck);
+  if (authCheck) {
+    return authCheck;
+  }
 
   const { id } = request.params as { id: string };
   const { telegramBotToken, ...columns } = getTableColumns(chatbots);
@@ -453,11 +454,14 @@ app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
       error: "Chatbot not found",
     });
   }
-  return bot[0];
+  return reply.send(bot[0]);
 });
 
 app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
-  await validateAuth(request, reply);
+  const authCheck = await validateAuth(request, reply);
+  if (authCheck) {
+    return authCheck;
+  }
 
   const { id } = request.params as { id: string };
   const bot = await db
