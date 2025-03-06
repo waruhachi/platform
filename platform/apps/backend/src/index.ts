@@ -16,7 +16,7 @@ import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import * as unzipper from "unzipper";
-import { desc, eq, getTableColumns, sql, isNull } from "drizzle-orm";
+import { desc, eq, getTableColumns, sql, isNull, and, gt } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 
@@ -229,7 +229,7 @@ FROM oven/bun:\${BUN_VERSION}-slim AS base
 LABEL fly_launch_runtime="Bun"
 
 # Bun app lives here
-WORKDIR /app
+WORKDIR /app/app_schema
 
 # Set production environment
 ENV NODE_ENV="production"
@@ -337,7 +337,12 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
   const notDeployedBots = await db
     .select()
     .from(chatbots)
-    .where(isNull(chatbots.flyAppId));
+    .where(
+      and(
+        isNull(chatbots.flyAppId),
+        gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))
+      )
+    );
 
   for (const bot of notDeployedBots) {
     const { readUrl } = await getReadPresignedUrls(bot.id);
