@@ -15,7 +15,6 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
-import * as unzipper from "unzipper";
 import { desc, eq, getTableColumns, sql, isNull, and, gt } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
@@ -194,10 +193,8 @@ async function deployBot({
   const buffer = await response.arrayBuffer();
   fs.writeFileSync(zipPath, Buffer.from(buffer));
 
-  await fs
-    .createReadStream(zipPath)
-    .pipe(unzipper.Extract({ path: extractDir }))
-    .promise();
+  // Use CLI unzip command instead of unzipper library
+  execSync(`unzip -o ${zipPath} -d ${extractDir}`);
 
   const files = execSync(`ls -la ${extractDir}`).toString();
   console.log("Extracted files:", files);
