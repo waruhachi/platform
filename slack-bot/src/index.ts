@@ -483,9 +483,10 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
   const initialRunMode = "telegram";
   const tokenValue = ""; // No token value initially
   const isStaging = false; // Staging not selected initially
+  const codeMode = "generate"; // Default to generate code
 
   // Use the buildModalBlocks function for consistency
-  const blocks = buildModalBlocks(initialRunMode, tokenValue, isStaging);
+  const blocks = buildModalBlocks(initialRunMode, tokenValue, isStaging, codeMode);
 
   await client.views.open({
     trigger_id: actionBody.trigger_id,
@@ -529,6 +530,12 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     "telegram";
   console.log("Selected run mode:", runMode);
 
+  // Extract the selected code mode
+  const codeMode =
+    view.state.values.code_mode_block.code_mode_radio.selected_option?.value ||
+    "generate";
+  console.log("Selected code mode:", codeMode);
+
   // Get the token value if the token block exists
   let botToken = "";
   if (runMode === "telegram") {
@@ -550,11 +557,12 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     }
   }
 
-  // Check if a source code file was uploaded
+  // Check if a source code file was uploaded (only if upload code mode)
   let sourceCodeFileId: string | undefined;
   let hasUploadedFile = false;
 
   if (
+    codeMode === "upload" &&
     view.state.values.source_code_block &&
     view.state.values.source_code_block.source_code_input
   ) {
@@ -565,23 +573,31 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
       sourceCodeFileId = fileInput.files[0].id;
       hasUploadedFile = true;
       console.log("Source code file ID:", sourceCodeFileId);
+    } else {
+      // If upload mode is selected but no file is uploaded, show an error
+      await ack({
+        response_action: "errors",
+        errors: {
+          source_code_block: "Please upload a ZIP file with your source code",
+        },
+      });
+      return;
     }
   }
 
   console.log("Source code file uploaded:", hasUploadedFile);
 
-  // If a file is uploaded, always set useStaging to false
-  // Otherwise, check if the staging checkbox was selected
+  // Check if staging is selected (only if generate code mode)
   let useStaging = false;
-
-  // Check if the staging block exists in the view state
-  // It will only exist if no file was uploaded
-  if (!hasUploadedFile && view.state.values.staging_block) {
+  if (
+    codeMode === "generate" &&
+    view.state.values.staging_block &&
+    view.state.values.staging_block.staging_checkbox
+  ) {
     const stagingBlock = view.state.values.staging_block.staging_checkbox;
     console.log("Staging block state:", JSON.stringify(stagingBlock));
 
     if (
-      stagingBlock &&
       stagingBlock.selected_options &&
       stagingBlock.selected_options.length > 0
     ) {
@@ -625,11 +641,49 @@ function buildModalBlocks(
   runMode: string,
   tokenValue: string,
   isStaging: boolean,
+  codeMode: string = "generate" // Default to generate code
 ) {
-  console.log("Building modal blocks with params:", { runMode, isStaging });
+  console.log("Building modal blocks with params:", { runMode, isStaging, codeMode });
   const blocks: any[] = [];
 
-  // Add the run mode block (always first)
+  // Add the code mode selection block (always first)
+  blocks.push({
+    type: "section",
+    block_id: "code_mode_block",
+    text: {
+      type: "mrkdwn",
+      text: "*Code Mode*",
+    },
+    accessory: {
+      type: "radio_buttons",
+      action_id: "code_mode_radio",
+      initial_option: {
+        text: {
+          type: "plain_text",
+          text: codeMode === "upload" ? "Upload Code" : "Generate Code",
+        },
+        value: codeMode,
+      },
+      options: [
+        {
+          text: {
+            type: "plain_text",
+            text: "Upload Code",
+          },
+          value: "upload",
+        },
+        {
+          text: {
+            type: "plain_text",
+            text: "Generate Code",
+          },
+          value: "generate",
+        },
+      ],
+    },
+  });
+
+  // Add the run mode block (always second)
   blocks.push({
     type: "section",
     block_id: "run_mode_block",
@@ -687,56 +741,63 @@ function buildModalBlocks(
     });
   }
 
-  // Add the source code block (always present)
-  blocks.push({
-    type: "input",
-    block_id: "source_code_block",
-    optional: true,
-    element: {
-      type: "file_input",
-      action_id: "source_code_input",
-      filetypes: ["zip"],
-      max_files: 1,
-    },
-    label: {
-      type: "plain_text",
-      text: "Source Code (ZIP file)",
-    },
-  });
-  // Only add the staging block if no file is uploaded
-  const checkboxAccessory: any = {
-    type: "checkboxes",
-    action_id: "staging_checkbox",
-    options: [
-      {
-        text: {
-          type: "plain_text",
-          text: "Use staging",
-        },
-        value: "use_staging",
+  // Add the source code block only if upload code mode is selected
+  if (codeMode === "upload") {
+    blocks.push({
+      type: "input",
+      block_id: "source_code_block",
+      element: {
+        type: "file_input",
+        action_id: "source_code_input",
+        filetypes: ["zip"],
+        max_files: 1,
       },
-    ],
-  };
-
-  // Only add initial_options if staging is selected
-  checkboxAccessory.initial_options = [
-    {
-      text: {
+      label: {
         type: "plain_text",
-        text: "Use staging",
+        text: "Source Code (ZIP file)",
       },
-      value: "use_staging",
-    },
-  ];
-  blocks.push({
-    type: "section",
-    block_id: "staging_block",
-    text: {
-      type: "mrkdwn",
-      text: "*Environment*",
-    },
-    accessory: checkboxAccessory,
-  });
+    });
+  }
+  
+  // Only add the staging block if generate code mode is selected
+  if (codeMode === "generate") {
+    const checkboxAccessory: any = {
+      type: "checkboxes",
+      action_id: "staging_checkbox",
+      options: [
+        {
+          text: {
+            type: "plain_text",
+            text: "Use staging",
+          },
+          value: "use_staging",
+        },
+      ],
+    };
+
+    // Only add initial_options if staging is selected
+    if (isStaging) {
+      checkboxAccessory.initial_options = [
+        {
+          text: {
+            type: "plain_text",
+            text: "Use staging",
+          },
+          value: "use_staging",
+        },
+      ];
+    }
+    
+    blocks.push({
+      type: "section",
+      block_id: "staging_block",
+      text: {
+        type: "mrkdwn",
+        text: "*Environment*",
+      },
+      accessory: checkboxAccessory,
+    });
+  }
 
   return blocks;
 }
@@ -766,6 +827,17 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
     tokenValue = viewState.values.token_block.token_input.value || "";
   }
 
+  // Extract the code mode
+  let codeMode = "generate"; // Default
+  if (
+    viewState.values.code_mode_block &&
+    viewState.values.code_mode_block.code_mode_radio &&
+    viewState.values.code_mode_block.code_mode_radio.selected_option
+  ) {
+    codeMode =
+      viewState.values.code_mode_block.code_mode_radio.selected_option.value;
+  }
+
   // Check if a file is uploaded
   let hasUploadedFile = false;
 
@@ -783,10 +855,10 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
 
   console.log("hasUploadedFile from state:", hasUploadedFile);
 
-  // Check if staging is selected (only if no file is uploaded)
+  // Check if staging is selected (only if generate code mode)
   let isStaging = false;
   if (
-    !hasUploadedFile &&
+    codeMode === "generate" &&
     viewState.values.staging_block &&
     viewState.values.staging_block.staging_checkbox &&
     viewState.values.staging_block.staging_checkbox.selected_options &&
@@ -798,7 +870,7 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
   console.log("isStaging:", isStaging);
 
   // Build the blocks
-  const newBlocks = buildModalBlocks(selectedRunMode, tokenValue, isStaging);
+  const newBlocks = buildModalBlocks(selectedRunMode, tokenValue, isStaging, codeMode);
 
   console.log(
     "New blocks:",
@@ -855,6 +927,17 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
       viewState.values.run_mode_block.run_mode_radio.selected_option.value;
   }
 
+  // Extract the code mode
+  let codeMode = "generate"; // Default
+  if (
+    viewState.values.code_mode_block &&
+    viewState.values.code_mode_block.code_mode_radio &&
+    viewState.values.code_mode_block.code_mode_radio.selected_option
+  ) {
+    codeMode =
+      viewState.values.code_mode_block.code_mode_radio.selected_option.value;
+  }
+
   // Extract the token value if it exists
   let tokenValue = "";
   if (
@@ -864,41 +947,9 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
     tokenValue = viewState.values.token_block.token_input.value || "";
   }
 
-  // Check if files were selected
-  let hasUploadedFile = false;
-
-  // Check the action payload for selected files
-  if (
-    actionBody.actions &&
-    actionBody.actions[0] &&
-    actionBody.actions[0].selected_files
-  ) {
-    hasUploadedFile = actionBody.actions[0].selected_files.length > 0;
-    console.log(
-      "Files from action:",
-      JSON.stringify(actionBody.actions[0].selected_files),
-    );
-  }
-
-  // If no files in action, check the view state
-  if (
-    !hasUploadedFile &&
-    viewState.values.source_code_block &&
-    viewState.values.source_code_block.source_code_input
-  ) {
-    const fileInput = viewState.values.source_code_block.source_code_input;
-    if (fileInput.files && fileInput.files.length > 0) {
-      hasUploadedFile = true;
-      console.log("Files from state:", JSON.stringify(fileInput.files));
-    }
-  }
-
-  console.log("hasUploadedFile:", hasUploadedFile);
-
-  // Check if staging is selected (only if no file is uploaded)
+  // Check if staging is selected
   let isStaging = false;
   if (
-    !hasUploadedFile &&
     viewState.values.staging_block &&
     viewState.values.staging_block.staging_checkbox &&
     viewState.values.staging_block.staging_checkbox.selected_options &&
@@ -910,7 +961,7 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
   console.log("isStaging:", isStaging);
 
   // Build the blocks
-  const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging);
+  const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging, codeMode);
 
   console.log(
     "New blocks:",
@@ -936,6 +987,88 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
         },
       },
     });
+  } catch (error) {
+    console.error("Error updating view:", error);
+  }
+});
+
+// Add this handler for the code mode selection
+app.action("code_mode_radio", async ({ ack, body, client }) => {
+  await ack();
+
+  const actionBody = body as any;
+  const selectedCodeMode = actionBody.actions[0].selected_option.value;
+  const viewId = actionBody.view.id;
+  const privateMetadata = actionBody.view.private_metadata;
+
+  console.log("code_mode_radio action triggered");
+  console.log("selectedCodeMode:", selectedCodeMode);
+  console.log("Action body:", JSON.stringify(actionBody.actions[0]));
+
+  // Get the current view state
+  const viewState = actionBody.view.state;
+
+  // Extract the run mode
+  let runMode = "telegram"; // Default
+  if (
+    viewState.values.run_mode_block &&
+    viewState.values.run_mode_block.run_mode_radio &&
+    viewState.values.run_mode_block.run_mode_radio.selected_option
+  ) {
+    runMode =
+      viewState.values.run_mode_block.run_mode_radio.selected_option.value;
+  }
+
+  // Extract the token value if it exists
+  let tokenValue = "";
+  if (
+    viewState.values.token_block &&
+    viewState.values.token_block.token_input
+  ) {
+    tokenValue = viewState.values.token_block.token_input.value || "";
+  }
+
+  // Check if staging is selected
+  let isStaging = false;
+  if (
+    viewState.values.staging_block &&
+    viewState.values.staging_block.staging_checkbox &&
+    viewState.values.staging_block.staging_checkbox.selected_options &&
+    viewState.values.staging_block.staging_checkbox.selected_options.length > 0
+  ) {
+    isStaging = true;
+  }
+
+  console.log("isStaging:", isStaging);
+
+  // Build the blocks with the new code mode
+  const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging, selectedCodeMode);
+
+  console.log(
+    "New blocks:",
+    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
+  );
+
+  // Update the view with the completely new blocks
+  try {
+    await client.views.update({
+      view_id: viewId,
+      view: {
+        type: "modal",
+        callback_id: "bot_token_modal",
+        title: {
+          type: "plain_text",
+          text: "Configure Bot",
+        },
+        blocks: newBlocks,
+        private_metadata: privateMetadata,
+        submit: {
+          type: "plain_text",
+          text: "Submit",
+        },
+      },
+    });
+    console.log("View updated successfully");
   } catch (error) {
     console.error("Error updating view:", error);
   }
