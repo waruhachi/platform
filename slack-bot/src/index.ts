@@ -2,7 +2,7 @@ import { App, LogLevel, subtype } from "@slack/bolt";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { threads } from "./db/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
-import { CronJob } from 'cron';
+import { CronJob } from "cron";
 import { config } from "dotenv";
 import fetch from "node-fetch";
 import https from "https";
@@ -32,16 +32,22 @@ const app = new App({
 });
 
 const job = CronJob.from({
-	cronTime: '*/30 * * * * *', // every 30 seconds
-	onTick: async function () {
-    const undeployedBots = await db.select().from(threads).where(and(eq(threads.deployed, false), isNotNull(threads.chatbotId)));
+  cronTime: "*/30 * * * * *", // every 30 seconds
+  onTick: async function () {
+    const undeployedBots = await db
+      .select()
+      .from(threads)
+      .where(and(eq(threads.deployed, false), isNotNull(threads.chatbotId)));
 
     for (const bot of undeployedBots) {
-      const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`, {
-        headers: {
-          'Authorization': `Bearer ${process.env.BACKEND_API_SECRET}`
-        }
-      });
+      const botStatus = await fetch(
+        `${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
+          },
+        },
+      );
       const botStatusJson = await botStatus.json();
 
       if (botStatusJson.flyAppId && bot.channelId) {
@@ -49,76 +55,87 @@ const job = CronJob.from({
           channel: bot.channelId,
           thread_ts: bot.threadTs,
           text: `✅ The bot has been successfully deployed, go and talk to it!
-  Download the code here: ${botStatusJson.readUrl}`
+  Download the code here: ${botStatusJson.readUrl}`,
         });
-        
-        await db.update(threads).set({
-          deployed: true,
-        }).where(eq(threads.threadTs, bot.threadTs));
+
+        await db
+          .update(threads)
+          .set({
+            deployed: true,
+          })
+          .where(eq(threads.threadTs, bot.threadTs));
       }
     }
-	},
-	start: true,
+  },
+  start: true,
 });
 
 job.start();
 
 // Function to download a file from Slack
-async function downloadFileFromSlack(fileId: string, token: string): Promise<{ filePath: string, fileName: string }> {
+async function downloadFileFromSlack(
+  fileId: string,
+  token: string,
+): Promise<{ filePath: string; fileName: string }> {
   try {
     console.log(`Downloading file with ID: ${fileId}`);
-    
+
     // Get file info
-    const fileInfoResponse = await fetch(`https://slack.com/api/files.info?file=${fileId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
+    const fileInfoResponse = await fetch(
+      `https://slack.com/api/files.info?file=${fileId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
-    
+    );
+
     if (!fileInfoResponse.ok) {
-      throw new Error(`Failed to get file info: ${fileInfoResponse.statusText}`);
+      throw new Error(
+        `Failed to get file info: ${fileInfoResponse.statusText}`,
+      );
     }
-    
+
     const fileInfo = await fileInfoResponse.json();
-    
+
     if (!fileInfo.ok || !fileInfo.file) {
       throw new Error(`Failed to get file info: ${JSON.stringify(fileInfo)}`);
     }
-    
+
     const file = fileInfo.file;
     const fileUrl = file.url_private;
     const fileName = file.name;
-    
+
     console.log(`File URL: ${fileUrl}, File Name: ${fileName}`);
-    
+
     // Create temp directory if it doesn't exist
     const tempDir = path.join(process.cwd(), "temp");
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
-    
+
     // Download the file
     const filePath = path.join(tempDir, fileName);
     const fileStream = fs.createWriteStream(filePath);
-    
+
     const response = await fetch(fileUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.statusText}`);
     }
-    
+
     if (!response.body) {
       throw new Error("Response body is null");
     }
-    
+
     await pipeline(response.body, fileStream);
-    
+
     console.log(`File downloaded to: ${filePath}`);
-    
+
     return { filePath, fileName };
   } catch (error) {
     console.error("Error downloading file:", error);
@@ -147,7 +164,7 @@ async function chatbotIteration({
 }) {
   try {
     console.log("calling generate endpoint");
-    
+
     let requestBody: any = {
       prompt,
       telegramBotToken: runMode === "telegram" ? telegramBotToken : undefined,
@@ -155,7 +172,7 @@ async function chatbotIteration({
       useStaging,
       runMode,
     };
-    
+
     // If a source code file ID is provided, download the file and prepare to send it
     if (sourceCodeFileId) {
       try {
@@ -164,20 +181,23 @@ async function chatbotIteration({
         if (!botToken) {
           throw new Error("TOKEN is not set in environment variables");
         }
-        
+
         // Download the file
-        const { filePath, fileName } = await downloadFileFromSlack(sourceCodeFileId, botToken);
-        
+        const { filePath, fileName } = await downloadFileFromSlack(
+          sourceCodeFileId,
+          botToken,
+        );
+
         // Read the file as a base64 string
         const fileContent = fs.readFileSync(filePath);
-        const base64Content = fileContent.toString('base64');
-        
+        const base64Content = fileContent.toString("base64");
+
         // Add the file content to the request body
         requestBody.sourceCodeFile = {
           name: fileName,
           content: base64Content,
         };
-        
+
         // Clean up the temporary file
         fs.unlinkSync(filePath);
       } catch (error) {
@@ -185,7 +205,7 @@ async function chatbotIteration({
         // Continue without the file if there's an error
       }
     }
-    
+
     const response = await fetch(`${BACKEND_API_HOST}/generate`, {
       method: "POST",
       headers: {
@@ -217,21 +237,24 @@ async function chatbotIteration({
           };
         };
       } = await response.json();
-      
+
       console.log("generateResult", generateResult);
-      
+
       const chatbotId = generateResult.newBot.id;
-      
+
       // Update the initial message to include the chatbot ID
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
         text: `Bot generation in progress! Chatbot ID: ${chatbotId}`,
       });
-      
-      await db.update(threads).set({
-        chatbotId: chatbotId,
-      }).where(eq(threads.threadTs, threadTs));
+
+      await db
+        .update(threads)
+        .set({
+          chatbotId: chatbotId,
+        })
+        .where(eq(threads.threadTs, threadTs));
     } else {
       const errorMessage = await response.text();
 
@@ -280,14 +303,14 @@ async function handleBotGeneration({
 }) {
   const stagingText = useStaging ? "to staging" : "to production";
   const runModeText = runMode === "http-server" ? "HTTP" : "Telegram";
-  
+
   let messageText;
   if (sourceCodeFileId) {
     messageText = `Since you uploaded the source code, I'm going to just deploy it. This will take 1-2 minutes.`;
   } else {
     messageText = `I'm going to start generating a ${runModeText} bot for you ${stagingText}. This will take a few minutes.`;
   }
-  
+
   const msg = await client.chat.postMessage({
     channel: channelId,
     thread_ts: threadTs,
@@ -349,7 +372,7 @@ app.message("", async ({ event, logger }) => {
     .select()
     .from(threads)
     .where(
-      and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user))
+      and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user)),
     );
 
   console.log("threadResult", threadResult);
@@ -435,12 +458,15 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
   // Type assertion for body to access actions property
   const actionBody = body as any;
   const { prompt, channelId, userId, threadTs } = JSON.parse(
-    actionBody.actions[0].value
+    actionBody.actions[0].value,
   );
 
   console.log("open_bot_modal action triggered");
-  console.log("Action body structure:", JSON.stringify(Object.keys(actionBody)));
-  
+  console.log(
+    "Action body structure:",
+    JSON.stringify(Object.keys(actionBody)),
+  );
+
   // Extract the message timestamp from the appropriate location
   let messageTs;
   if (actionBody.message && actionBody.message.ts) {
@@ -450,17 +476,17 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
   } else {
     messageTs = threadTs; // Fallback to threadTs if neither is available
   }
-  
+
   console.log("messageTs:", messageTs);
-  
+
   // Default run mode is telegram
   const initialRunMode = "telegram";
   const tokenValue = ""; // No token value initially
   const isStaging = false; // Staging not selected initially
-  
+
   // Use the buildModalBlocks function for consistency
   const blocks = buildModalBlocks(initialRunMode, tokenValue, isStaging);
-  
+
   await client.views.open({
     trigger_id: actionBody.trigger_id,
     view: {
@@ -491,16 +517,18 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
   await ack();
 
   const { prompt, channelId, userId, threadTs, messageTs } = JSON.parse(
-    view.private_metadata
+    view.private_metadata,
   );
-  
+
   console.log("bot_token_modal submission received");
   console.log("View state:", JSON.stringify(Object.keys(view.state.values)));
-  
+
   // Extract the selected run mode
-  const runMode = view.state.values.run_mode_block.run_mode_radio.selected_option?.value || "telegram";
+  const runMode =
+    view.state.values.run_mode_block.run_mode_radio.selected_option?.value ||
+    "telegram";
   console.log("Selected run mode:", runMode);
-  
+
   // Get the token value if the token block exists
   let botToken = "";
   if (runMode === "telegram") {
@@ -509,7 +537,7 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     if (tokenBlock && tokenBlock.token_input) {
       botToken = tokenBlock.token_input.value || "";
     }
-    
+
     // Validate token is provided for Telegram bots
     if (!botToken) {
       await ack({
@@ -525,37 +553,42 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
   // Check if a source code file was uploaded
   let sourceCodeFileId: string | undefined;
   let hasUploadedFile = false;
-  
-  if (view.state.values.source_code_block && 
-      view.state.values.source_code_block.source_code_input) {
-    
+
+  if (
+    view.state.values.source_code_block &&
+    view.state.values.source_code_block.source_code_input
+  ) {
     const fileInput = view.state.values.source_code_block.source_code_input;
     console.log("File input state:", JSON.stringify(fileInput));
-    
+
     if (fileInput.files && fileInput.files.length > 0) {
       sourceCodeFileId = fileInput.files[0].id;
       hasUploadedFile = true;
       console.log("Source code file ID:", sourceCodeFileId);
     }
   }
-  
+
   console.log("Source code file uploaded:", hasUploadedFile);
-  
+
   // If a file is uploaded, always set useStaging to false
   // Otherwise, check if the staging checkbox was selected
   let useStaging = false;
-  
+
   // Check if the staging block exists in the view state
   // It will only exist if no file was uploaded
   if (!hasUploadedFile && view.state.values.staging_block) {
     const stagingBlock = view.state.values.staging_block.staging_checkbox;
     console.log("Staging block state:", JSON.stringify(stagingBlock));
-    
-    if (stagingBlock && stagingBlock.selected_options && stagingBlock.selected_options.length > 0) {
+
+    if (
+      stagingBlock &&
+      stagingBlock.selected_options &&
+      stagingBlock.selected_options.length > 0
+    ) {
       useStaging = true;
     }
   }
-  
+
   console.log("useStaging:", useStaging);
   console.log("View blocks:", JSON.stringify(Object.keys(view.state.values)));
 
@@ -588,10 +621,14 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
 });
 
 // Helper function to build modal blocks
-function buildModalBlocks(runMode: string, tokenValue: string, isStaging: boolean) {
+function buildModalBlocks(
+  runMode: string,
+  tokenValue: string,
+  isStaging: boolean,
+) {
   console.log("Building modal blocks with params:", { runMode, isStaging });
   const blocks: any[] = [];
-  
+
   // Add the run mode block (always first)
   blocks.push({
     type: "section",
@@ -628,7 +665,7 @@ function buildModalBlocks(runMode: string, tokenValue: string, isStaging: boolea
       ],
     },
   });
-  
+
   // Add the token block only if Telegram mode is selected
   if (runMode === "telegram") {
     blocks.push({
@@ -649,7 +686,7 @@ function buildModalBlocks(runMode: string, tokenValue: string, isStaging: boolea
       },
     });
   }
-  
+
   // Add the source code block (always present)
   blocks.push({
     type: "input",
@@ -659,51 +696,48 @@ function buildModalBlocks(runMode: string, tokenValue: string, isStaging: boolea
       type: "file_input",
       action_id: "source_code_input",
       filetypes: ["zip"],
-      max_files: 1
+      max_files: 1,
     },
     label: {
       type: "plain_text",
       text: "Source Code (ZIP file)",
-    }
+    },
   });
   // Only add the staging block if no file is uploaded
-    const checkboxAccessory: any = {
-      type: "checkboxes",
-      action_id: "staging_checkbox",
-      options: [
-        {
-          text: {
-            type: "plain_text",
-            text: "Use staging",
-          },
-          value: "use_staging",
+  const checkboxAccessory: any = {
+    type: "checkboxes",
+    action_id: "staging_checkbox",
+    options: [
+      {
+        text: {
+          type: "plain_text",
+          text: "Use staging",
         },
-      ],
-    };
-    
-    // Only add initial_options if staging is selected
-    if (isStaging) {
-      checkboxAccessory.initial_options = [
-        {
-          text: {
-            type: "plain_text",
-            text: "Use staging",
-          },
-          value: "use_staging",
-        }
-      ];
-    
-    blocks.push({
-      type: "section",
-      block_id: "staging_block",
-      text: {
-        type: "mrkdwn",
-        text: "*Environment*",
+        value: "use_staging",
       },
-      accessory: checkboxAccessory,
-    });
-  }
-  
+    ],
+  };
+
+  // Only add initial_options if staging is selected
+  checkboxAccessory.initial_options = [
+    {
+      text: {
+        type: "plain_text",
+        text: "Use staging",
+      },
+      value: "use_staging",
+    },
+  ];
+  blocks.push({
+    type: "section",
+    block_id: "staging_block",
+    text: {
+      type: "mrkdwn",
+      text: "*Environment*",
+    },
+    accessory: checkboxAccessory,
+  });
+
   return blocks;
 }
 
@@ -719,50 +753,58 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
   console.log("run_mode_radio action triggered");
   console.log("selectedRunMode:", selectedRunMode);
   console.log("Action body:", JSON.stringify(actionBody.actions[0]));
-  
+
   // Get the current view state
   const viewState = actionBody.view.state;
-  
+
   // Extract the token value if it exists
   let tokenValue = "";
-  if (viewState.values.token_block && 
-      viewState.values.token_block.token_input) {
+  if (
+    viewState.values.token_block &&
+    viewState.values.token_block.token_input
+  ) {
     tokenValue = viewState.values.token_block.token_input.value || "";
   }
-  
+
   // Check if a file is uploaded
   let hasUploadedFile = false;
-  
+
   // First check if the source_code_block exists and has files
-  if (viewState.values.source_code_block && 
-      viewState.values.source_code_block.source_code_input) {
-    
+  if (
+    viewState.values.source_code_block &&
+    viewState.values.source_code_block.source_code_input
+  ) {
     // Check if there are files in the state
     const fileInput = viewState.values.source_code_block.source_code_input;
     if (fileInput.files && fileInput.files.length > 0) {
       hasUploadedFile = true;
     }
   }
-  
+
   console.log("hasUploadedFile from state:", hasUploadedFile);
-  
+
   // Check if staging is selected (only if no file is uploaded)
   let isStaging = false;
-  if (!hasUploadedFile && 
-      viewState.values.staging_block && 
-      viewState.values.staging_block.staging_checkbox && 
-      viewState.values.staging_block.staging_checkbox.selected_options && 
-      viewState.values.staging_block.staging_checkbox.selected_options.length > 0) {
+  if (
+    !hasUploadedFile &&
+    viewState.values.staging_block &&
+    viewState.values.staging_block.staging_checkbox &&
+    viewState.values.staging_block.staging_checkbox.selected_options &&
+    viewState.values.staging_block.staging_checkbox.selected_options.length > 0
+  ) {
     isStaging = true;
   }
-  
+
   console.log("isStaging:", isStaging);
-  
+
   // Build the blocks
   const newBlocks = buildModalBlocks(selectedRunMode, tokenValue, isStaging);
-  
-  console.log("New blocks:", JSON.stringify(newBlocks.map((b: any) => b.block_id)));
-  
+
+  console.log(
+    "New blocks:",
+    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
+  );
+
   // Update the view with the completely new blocks
   try {
     await client.views.update({
@@ -795,69 +837,86 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
   const actionBody = body as any;
   const viewId = actionBody.view.id;
   const privateMetadata = actionBody.view.private_metadata;
-  
+
   console.log("staging_checkbox action triggered");
   console.log("Action body:", JSON.stringify(actionBody.actions[0]));
-  
+
   // Get the current view state
   const viewState = actionBody.view.state;
-  
+
   // Extract the run mode
   let runMode = "telegram"; // Default
-  if (viewState.values.run_mode_block && 
-      viewState.values.run_mode_block.run_mode_radio && 
-      viewState.values.run_mode_block.run_mode_radio.selected_option) {
-    runMode = viewState.values.run_mode_block.run_mode_radio.selected_option.value;
+  if (
+    viewState.values.run_mode_block &&
+    viewState.values.run_mode_block.run_mode_radio &&
+    viewState.values.run_mode_block.run_mode_radio.selected_option
+  ) {
+    runMode =
+      viewState.values.run_mode_block.run_mode_radio.selected_option.value;
   }
-  
+
   // Extract the token value if it exists
   let tokenValue = "";
-  if (viewState.values.token_block && 
-      viewState.values.token_block.token_input) {
+  if (
+    viewState.values.token_block &&
+    viewState.values.token_block.token_input
+  ) {
     tokenValue = viewState.values.token_block.token_input.value || "";
   }
-  
+
   // Check if files were selected
   let hasUploadedFile = false;
-  
+
   // Check the action payload for selected files
-  if (actionBody.actions && 
-      actionBody.actions[0] && 
-      actionBody.actions[0].selected_files) {
+  if (
+    actionBody.actions &&
+    actionBody.actions[0] &&
+    actionBody.actions[0].selected_files
+  ) {
     hasUploadedFile = actionBody.actions[0].selected_files.length > 0;
-    console.log("Files from action:", JSON.stringify(actionBody.actions[0].selected_files));
+    console.log(
+      "Files from action:",
+      JSON.stringify(actionBody.actions[0].selected_files),
+    );
   }
-  
+
   // If no files in action, check the view state
-  if (!hasUploadedFile && 
-      viewState.values.source_code_block && 
-      viewState.values.source_code_block.source_code_input) {
+  if (
+    !hasUploadedFile &&
+    viewState.values.source_code_block &&
+    viewState.values.source_code_block.source_code_input
+  ) {
     const fileInput = viewState.values.source_code_block.source_code_input;
     if (fileInput.files && fileInput.files.length > 0) {
       hasUploadedFile = true;
       console.log("Files from state:", JSON.stringify(fileInput.files));
     }
   }
-  
+
   console.log("hasUploadedFile:", hasUploadedFile);
-  
+
   // Check if staging is selected (only if no file is uploaded)
   let isStaging = false;
-  if (!hasUploadedFile && 
-      viewState.values.staging_block && 
-      viewState.values.staging_block.staging_checkbox && 
-      viewState.values.staging_block.staging_checkbox.selected_options && 
-      viewState.values.staging_block.staging_checkbox.selected_options.length > 0) {
+  if (
+    !hasUploadedFile &&
+    viewState.values.staging_block &&
+    viewState.values.staging_block.staging_checkbox &&
+    viewState.values.staging_block.staging_checkbox.selected_options &&
+    viewState.values.staging_block.staging_checkbox.selected_options.length > 0
+  ) {
     isStaging = true;
   }
-  
+
   console.log("isStaging:", isStaging);
-  
+
   // Build the blocks
   const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging);
-  
-  console.log("New blocks:", JSON.stringify(newBlocks.map((b: any) => b.block_id)));
-  
+
+  console.log(
+    "New blocks:",
+    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
+  );
+
   // Update the view with the completely new blocks
   try {
     await client.views.update({

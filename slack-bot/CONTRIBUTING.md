@@ -1,4 +1,5 @@
 To do local development work on the Slack Bot, you have to:
+
 1. Set up a `.env` file from `.env.example`
 2. If you need to connect to the remote backend, make this change in `index.ts`:
 
