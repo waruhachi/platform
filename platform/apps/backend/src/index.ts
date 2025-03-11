@@ -482,14 +482,17 @@ app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
 
 app.post("/generate", async (request, reply) => {
   try {
-    const { prompt, telegramBotToken, userId, useStaging, runMode } =
+    const { prompt, telegramBotToken, userId, useStaging, runMode, sourceCodeFile } =
       request.body as {
         prompt: string;
         telegramBotToken: string;
         userId: string;
         useStaging: boolean;
         runMode: string;
+        sourceCodeFile?: { name: string; content: string };
       };
+
+    console.log("request.body", request.body);
 
     const botId = uuidv4();
     const { writeUrl, readUrl } =
@@ -507,29 +510,58 @@ app.post("/generate", async (request, reply) => {
       .returning();
 
     try {
-      let AGENT_API_URL = useStaging
-        ? "http://18.237.53.81:8080"
-        : "http://54.245.178.56:8080";
+      // If sourceCodeFile is provided, upload it directly to S3 and skip the /compile endpoint
+      if (sourceCodeFile) {
+        console.log(`Uploading source code file directly to S3 for bot ${botId}`);
+        
+        try {
+          // Decode the base64 content
+          const fileBuffer = Buffer.from(sourceCodeFile.content, 'base64');
+          
+          // Upload the file to S3 using the writeUrl
+          const response = await fetch(writeUrl, {
+            method: 'PUT',
+            body: fileBuffer,
+            headers: {
+              'Content-Type': 'application/zip',
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to upload file to S3: ${response.statusText}`);
+          }
+          
+          console.log(`Successfully uploaded source code file to S3 for bot ${botId}`);
+        } catch (uploadError) {
+          console.error("Error uploading source code file to S3:", uploadError);
+          throw new Error(`Failed to upload source code file: ${uploadError}`);
+        }
+      } else {
+        // If no sourceCodeFile is provided, call the /compile endpoint as before
+        let AGENT_API_URL = useStaging
+          ? "http://18.237.53.81:8080"
+          : "http://54.245.178.56:8080";
 
-      const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
-        },
-        body: JSON.stringify({
-          prompt,
-          writeUrl,
-          botId,
-          // readUrl,
-        }),
-      });
-      console.log("compileResponse", compileResponse);
+        const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
+          },
+          body: JSON.stringify({
+            prompt,
+            writeUrl,
+            botId,
+            // readUrl,
+          }),
+        });
+        console.log("compileResponse", compileResponse);
 
-      if (!compileResponse.ok) {
-        throw new Error(
-          `HTTP error in /compile, status: ${compileResponse.status}`,
-        );
+        if (!compileResponse.ok) {
+          throw new Error(
+            `HTTP error in /compile, status: ${compileResponse.status}`,
+          );
+        }
       }
 
       // Find existing app with `telegramBotToken`
