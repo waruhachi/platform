@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { fastifySchedule } from "@fastify/schedule";
 import { CronJob, AsyncTask } from "toad-scheduler";
-import { chatbots } from "./db/schema";
+import { chatbotPrompts, chatbots } from "./db/schema";
 import { v4 as uuidv4 } from "uuid";
 import {
   S3Client,
@@ -200,7 +200,7 @@ async function deployBot({
   console.log("Extracted files:", files);
 
   const packageJsonPath = execSync(
-    `find ${extractDir} -name package.json -maxdepth 3 -print -quit`,
+    `find ${extractDir} -maxdepth 3 -not -path "*tsp_schema*" -name package.json -print -quit`,
   )
     .toString()
     .trim();
@@ -213,6 +213,7 @@ async function deployBot({
     project: {},
   });
   const connectionString = data.connection_uris[0].connection_uri;
+  console.log({ data, connectionString });
 
   // Write the `Dockerfile` to the packageJsonDirectory
   fs.writeFileSync(
@@ -240,7 +241,7 @@ RUN apt-get update -qq && \
 apt-get install --no-install-recommends -y build-essential pkg-config python-is-python3
 
 # Install node modules
-COPY package-lock.json package.json ./
+COPY package-lock.json* package.json ./
 RUN bun install --ci
 
 
@@ -270,6 +271,7 @@ CMD [ "bun", "run", "start" ]
     AWS_SECRET_ACCESS_KEY: process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!,
     PERPLEXITY_API_KEY: process.env.DEPLOYED_BOT_PERPLEXITY_API_KEY!,
     RUN_MODE: bot[0].runMode,
+    PICA_SECRET_KEY: process.env.DEPLOYED_BOT_PICA_SECRET_KEY!,
   };
 
   let envVarsString = "";
@@ -277,6 +279,17 @@ CMD [ "bun", "run", "start" ]
     if (value !== null) {
       envVarsString += `--env ${key}='${value}' `;
     }
+  }
+
+  try {
+    execSync(
+      `${flyBinary} apps destroy ${flyAppName} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
+      {
+        stdio: "inherit",
+      },
+    );
+  } catch (error) {
+    console.error("Error destroying fly app:", error);
   }
 
   execSync(
@@ -337,8 +350,8 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
     .where(
       and(
         isNull(chatbots.flyAppId),
-        gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000))
-      )
+        gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
+      ),
     );
 
   for (const bot of notDeployedBots) {
@@ -480,91 +493,35 @@ app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
   return getReadPresignedUrls(bot[0].id);
 });
 
-app.post("/generate", async (request, reply) => {
-  try {
-    const { prompt, telegramBotToken, userId, useStaging, runMode, sourceCodeFile } =
-      request.body as {
+app.post(
+  "/generate",
+  async (
+    request: FastifyRequest<{
+      Body: {
         prompt: string;
         telegramBotToken: string;
         userId: string;
         useStaging: boolean;
         runMode: string;
         sourceCodeFile?: { name: string; content: string };
+        botId?: string;
       };
-
-    console.log("request.body", request.body);
-
-    const botId = uuidv4();
-    const { writeUrl, readUrl } =
-      await createS3DirectoryWithPresignedUrls(botId);
-
-    await db
-      .insert(chatbots)
-      .values({
-        id: botId,
-        name: prompt,
-        ownerId: userId,
-        telegramBotToken,
-        runMode,
-      })
-      .returning();
-
+    }>,
+    reply: FastifyReply,
+  ) => {
     try {
-      // If sourceCodeFile is provided, upload it directly to S3 and skip the /compile endpoint
-      if (sourceCodeFile) {
-        console.log(`Uploading source code file directly to S3 for bot ${botId}`);
-        
-        try {
-          // Decode the base64 content
-          const fileBuffer = Buffer.from(sourceCodeFile.content, 'base64');
-          
-          // Upload the file to S3 using the writeUrl
-          const response = await fetch(writeUrl, {
-            method: 'PUT',
-            body: fileBuffer,
-            headers: {
-              'Content-Type': 'application/zip',
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to upload file to S3: ${response.statusText}`);
-          }
-          
-          console.log(`Successfully uploaded source code file to S3 for bot ${botId}`);
-        } catch (uploadError) {
-          console.error("Error uploading source code file to S3:", uploadError);
-          throw new Error(`Failed to upload source code file: ${uploadError}`);
-        }
-      } else {
-        // If no sourceCodeFile is provided, call the /compile endpoint as before
-        let AGENT_API_URL = useStaging
-          ? "http://18.237.53.81:8080"
-          : "http://54.245.178.56:8080";
+      const {
+        prompt,
+        telegramBotToken,
+        userId,
+        useStaging,
+        runMode,
+        sourceCodeFile,
+      } = request.body;
 
-        const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
-          },
-          body: JSON.stringify({
-            prompt,
-            writeUrl,
-            botId,
-            // readUrl,
-          }),
-        });
-        console.log("compileResponse", compileResponse);
+      console.log("request.body", request.body);
 
-        if (!compileResponse.ok) {
-          throw new Error(
-            `HTTP error in /compile, status: ${compileResponse.status}`,
-          );
-        }
-      }
-
-      // Find existing app with `telegramBotToken`
+      // Find all existing apps with `telegramBotToken` and destroy them one by one.
       const existingBots = await db
         .select({
           flyAppId: chatbots.flyAppId,
@@ -592,20 +549,128 @@ app.post("/generate", async (request, reply) => {
         }
       }
 
-      return reply.send({ newBot: { id: botId } });
+      let botId = request.body.botId;
+      if (!botId) {
+        botId = uuidv4();
+      }
+
+      const { writeUrl, readUrl } =
+        await createS3DirectoryWithPresignedUrls(botId);
+
+      await db
+        .insert(chatbots)
+        .values({
+          id: botId,
+          name: prompt,
+          ownerId: userId,
+          telegramBotToken,
+          runMode,
+        })
+        .returning();
+
+      await db.insert(chatbotPrompts).values({
+        id: uuidv4(),
+        prompt,
+        chatbotId: botId,
+      });
+
+      const allPrompts = await db
+        .select({
+          prompt: chatbotPrompts.prompt,
+          createdAt: chatbotPrompts.createdAt,
+        })
+        .from(chatbotPrompts)
+        .where(eq(chatbotPrompts.chatbotId, botId));
+
+      if (allPrompts.length < 1) {
+        throw new Error("Failed to insert prompt into chatbot_prompts");
+      }
+
+      try {
+        // If sourceCodeFile is provided, upload it directly to S3 and skip the /compile endpoint
+        if (sourceCodeFile) {
+          console.log(
+            `Uploading source code file directly to S3 for bot ${botId}`,
+          );
+
+          try {
+            // Decode the base64 content
+            const fileBuffer = Buffer.from(sourceCodeFile.content, "base64");
+
+            // Upload the file to S3 using the writeUrl
+            const response = await fetch(writeUrl, {
+              method: "PUT",
+              body: fileBuffer,
+              headers: {
+                "Content-Type": "application/zip",
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(
+                `Failed to upload file to S3: ${response.statusText}`,
+              );
+            }
+
+            console.log(
+              `Successfully uploaded source code file to S3 for bot ${botId}`,
+            );
+          } catch (uploadError) {
+            console.error(
+              "Error uploading source code file to S3:",
+              uploadError,
+            );
+            throw new Error(
+              `Failed to upload source code file: ${uploadError}`,
+            );
+          }
+
+          return reply.send({ newBot: { id: botId } });
+        } else {
+          // If no sourceCodeFile is provided, call the /compile endpoint as before
+          let AGENT_API_URL = useStaging
+            ? "http://18.237.53.81:8080"
+            : "http://54.245.178.56:8080";
+
+          const compileResponse = await fetch(`${AGENT_API_URL}/compile`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH!}`,
+            },
+            body: JSON.stringify({
+              prompt,
+              writeUrl,
+              botId,
+              readUrl,
+              allPrompts,
+            }),
+          });
+          console.log("compileResponse", compileResponse);
+
+          if (!compileResponse.ok) {
+            throw new Error(
+              `HTTP error in /compile, status: ${compileResponse.status}`,
+            );
+          }
+        }
+
+        return reply.send({ newBot: { id: botId } });
+      } catch (error) {
+        console.error("Error compiling bot:", error);
+        return reply
+          .status(400)
+          .send({ error: `Failed to compile bot: ${error}` });
+      }
     } catch (error) {
-      console.error("Error compiling bot:", error);
+      console.error("Error generating bot:", error);
       return reply
         .status(400)
-        .send({ error: `Failed to compile bot: ${error}` });
+        .send({ error: `Failed to generate bot: ${error}` });
     }
-  } catch (error) {
-    console.error("Error generating bot:", error);
-    return reply
-      .status(400)
-      .send({ error: `Failed to generate bot: ${error}` });
-  }
-});
+  },
+);
+
 const start = async () => {
   try {
     await app.listen({ host: "0.0.0.0", port: 4444 });

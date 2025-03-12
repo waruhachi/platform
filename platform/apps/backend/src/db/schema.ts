@@ -15,3 +15,12 @@ export const chatbots = pgTable("chatbots", {
   traceId: text(),
   runMode: text("runMode").notNull().default("telegram"),
 });
+
+export const chatbotPrompts = pgTable("chatbot_prompts", {
+  id: uuid("id").primaryKey(),
+  chatbotId: uuid("chatbotId").references(() => chatbots.id),
+  prompt: text("prompt").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

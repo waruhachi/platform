@@ -20,7 +20,7 @@ if (process.env.NODE_ENV === "production") {
   BACKEND_API_HOST = "https://platform-muddy-meadow-938.fly.dev";
 } else {
   // BACKEND_API_HOST = "https://platform-muddy-meadow-938.fly.dev";
-  BACKEND_API_HOST = "http://0.0.0.0:4444";
+  BACKEND_API_HOST = "http://localhost:4444";
 }
 
 const app = new App({
@@ -152,6 +152,7 @@ async function chatbotIteration({
   useStaging,
   runMode,
   sourceCodeFileId,
+  botId,
 }: {
   telegramBotToken: string;
   prompt: string;
@@ -161,6 +162,7 @@ async function chatbotIteration({
   useStaging: boolean;
   runMode: string;
   sourceCodeFileId?: string;
+  botId?: string;
 }) {
   try {
     console.log("calling generate endpoint");
@@ -171,6 +173,7 @@ async function chatbotIteration({
       userId,
       useStaging,
       runMode,
+      botId,
     };
 
     // If a source code file ID is provided, download the file and prepare to send it
@@ -246,7 +249,7 @@ async function chatbotIteration({
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `Bot generation in progress! Chatbot ID: ${chatbotId}`,
+        text: sourceCodeFileId ? `Bot deployment in progress! Chatbot ID: ${chatbotId}` : `Bot generation in progress! Chatbot ID: ${chatbotId}`,
       });
 
       await db
@@ -322,7 +325,7 @@ async function handleBotGeneration({
   }
 
   await db.insert(threads).values({
-    threadTs: msg.ts,
+    threadTs,
     chatbotToken: botToken,
     authorId: userId,
     channelId,
@@ -334,7 +337,7 @@ async function handleBotGeneration({
     telegramBotToken: botToken,
     prompt,
     channelId,
-    threadTs: msg.ts,
+    threadTs,
     userId,
     useStaging,
     runMode,
@@ -367,7 +370,7 @@ app.message("", async ({ event, logger }) => {
   if (!event.user) {
     return;
   }
-
+  
   const threadResult = await db
     .select()
     .from(threads)
@@ -375,9 +378,11 @@ app.message("", async ({ event, logger }) => {
       and(eq(threads.threadTs, threadTs), eq(threads.authorId, event.user)),
     );
 
-  console.log("threadResult", threadResult);
-
   if (threadResult.length !== 1) {
+    return;
+  }
+  
+  if (event.user !== threadResult[0].authorId) {
     return;
   }
 
@@ -389,6 +394,7 @@ app.message("", async ({ event, logger }) => {
     channelId: event.channel,
     threadTs: thread.threadTs,
     userId: event.user,
+    botId: thread.chatbotId || undefined, // Use the stored botId value
     useStaging: thread.useStaging ?? false, // Use the stored useStaging value with a default
     runMode: thread.runMode ?? "telegram", // Use the stored runMode value with a default
   });

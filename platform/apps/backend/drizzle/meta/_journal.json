@@ -43,6 +43,13 @@
       "when": 1740700045688,
       "tag": "0005_curved_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1741727671783,
+      "tag": "0006_jazzy_betty_ross",
+      "breakpoints": true
     }
   ]
 }
