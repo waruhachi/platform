@@ -14,6 +14,7 @@ export const chatbots = pgTable("chatbots", {
   flyAppId: text(),
   traceId: text(),
   runMode: text("runMode").notNull().default("telegram"),
+  typespecSchema: text(),
 });
 
 export const chatbotPrompts = pgTable("chatbot_prompts", {
@@ -23,4 +24,5 @@ export const chatbotPrompts = pgTable("chatbot_prompts", {
   createdAt: timestamp("createdAt", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  kind: text(), // "user" or "agent"
 });
