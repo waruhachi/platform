@@ -694,16 +694,18 @@ app.post(
 
             const prepareResponseJson: {
               message: string;
-              typespec: string;
               metadata: {
                 reasoning: string;
+                typespec: string;
               };
             } = await prepareResponse.json();
+
+            console.log("prepareResponseJson", prepareResponseJson);
 
             await db
               .update(chatbots)
               .set({
-                typespecSchema: prepareResponseJson.typespec,
+                typespecSchema: prepareResponseJson.metadata.typespec,
               })
               .where(eq(chatbots.id, botId));
 
