@@ -647,7 +647,7 @@ app.post(
             ? "http://18.237.53.81:8080"
             : "http://54.245.178.56:8080";
 
-          if (existingBot && existingBot[0] && existingBot[0].typespecSchema) {
+          if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
             const compileResponse = await fetch(`${AGENT_API_URL}/recompile`, {
               method: "POST",
               headers: {
@@ -693,6 +693,7 @@ app.post(
             }
 
             const prepareResponseJson: {
+              status: string;
               message: string;
               metadata: {
                 reasoning: string;
@@ -708,6 +709,16 @@ app.post(
                 typespecSchema: prepareResponseJson.metadata.typespec,
               })
               .where(eq(chatbots.id, botId));
+
+            if (prepareResponseJson.status === 'success') {
+              // From now on, we'll call /recompile instead of /prepare
+              await db
+                .update(chatbots)
+                .set({
+                  receivedSuccess: true,
+                })
+                .where(eq(chatbots.id, botId));
+            }
 
             await db.insert(chatbotPrompts).values({
               id: uuidv4(),

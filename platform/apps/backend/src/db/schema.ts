@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 
 export const chatbots = pgTable("chatbots", {
   id: uuid("id").primaryKey(),
@@ -15,6 +15,7 @@ export const chatbots = pgTable("chatbots", {
   traceId: text(),
   runMode: text("runMode").notNull().default("telegram"),
   typespecSchema: text(),
+  receivedSuccess: boolean("receivedSuccess").notNull().default(false),
 });
 
 export const chatbotPrompts = pgTable("chatbot_prompts", {
