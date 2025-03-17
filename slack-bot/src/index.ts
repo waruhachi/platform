@@ -235,7 +235,7 @@ async function chatbotIteration({
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `Received ${generateResult.message} from the agent. ${sourceCodeFileId ? `Uploading bot right away` : `Generating bot source code`}`
+        text: `Received ${generateResult.message} from the agent for chatbot ${chatbotId}. ${sourceCodeFileId ? `Uploading bot right away` : `Generating bot source code`}`
       });
 
       await db
