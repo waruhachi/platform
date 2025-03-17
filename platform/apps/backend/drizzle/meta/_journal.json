@@ -78,6 +78,13 @@
       "when": 1742061190563,
       "tag": "0010_faithful_cable",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1742206350507,
+      "tag": "0011_pink_maestro",
+      "breakpoints": true
     }
   ]
 }

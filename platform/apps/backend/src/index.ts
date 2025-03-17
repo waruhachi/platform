@@ -52,7 +52,7 @@ async function validateAuth(
   reply: FastifyReply,
 ): Promise<FastifyReply | undefined> {
   const authHeader = request.headers.authorization;
-  console.log("authHeader", authHeader);
+  // console.log("authHeader", authHeader);
 
   // special-case for slack-bot->backend communication
   if (authHeader === `Bearer ${process.env.BACKEND_API_SECRET}`) {
@@ -69,9 +69,9 @@ async function validateAuth(
 
   let payload;
   try {
-    console.log("jwks", jwks, "accessToken", accessToken);
+    // console.log("jwks", jwks, "accessToken", accessToken);
     payload = (await jose.jwtVerify(accessToken, jwks)).payload;
-    console.log("Authenticated user with ID:", payload.sub);
+    // console.log("Authenticated user with ID:", payload.sub);
   } catch (error) {
     console.error(error);
     console.log("Invalid JWKS");
@@ -109,7 +109,7 @@ async function validateAuth(
       return reply.status(403).send({ error: "Unauthorized email domain" });
     }
 
-    console.log("Authenticated user with ID:", payload.sub);
+    // console.log("Authenticated user with ID:", payload.sub);
   } catch (error) {
     console.error("An error occurred calling the Stack Auth API:", error);
     return reply.status(500).send({ error: "Authentication service error" });
@@ -453,9 +453,9 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
 });
 
 app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
-  console.log("/chatbots/:id request", request.params);
+  // console.log("/chatbots/:id request", request.params);
   const authCheck = await validateAuth(request, reply);
-  console.log("authCheck", authCheck);
+  // console.log("authCheck", authCheck);
   if (authCheck) {
     return authCheck;
   }

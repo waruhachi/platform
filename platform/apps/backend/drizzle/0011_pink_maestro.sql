@@ -1,0 +1,1 @@
+ALTER TABLE "chatbots" ADD COLUMN "receivedSuccess" boolean DEFAULT false NOT NULL;
