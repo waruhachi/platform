@@ -1,0 +1,1 @@
+ALTER TABLE "chatbots" ADD COLUMN "recompileInProgress" boolean DEFAULT false NOT NULL;

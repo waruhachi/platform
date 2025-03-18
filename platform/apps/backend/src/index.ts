@@ -648,6 +648,15 @@ app.post(
             : "http://54.245.178.56:8080";
 
           if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
+            if (existingBot[0].recompileInProgress) {
+              return reply.send({
+                newBot: {
+                  id: botId,
+                },
+                message: "Codegen already in progress",
+              });
+            }
+
             const compileResponse = await fetch(`${AGENT_API_URL}/recompile`, {
               method: "POST",
               headers: {
@@ -670,7 +679,11 @@ app.post(
               );
             }
 
-            return reply.send({ newBot: { id: botId } });
+            const compileResponseJson: {
+              message: string;
+            } = await compileResponse.json();
+
+            return reply.send({ newBot: { id: botId }, message: `Codegen started: ${compileResponseJson.message}` });
           } else {
             const prepareResponse = await fetch(`${AGENT_API_URL}/prepare`, {
               method: "POST",
@@ -680,8 +693,6 @@ app.post(
               },
               body: JSON.stringify({
                 prompts: allPrompts,
-                writeUrl,
-                readUrl,
                 capabilities: [],
               }),
             });
