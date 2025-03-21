@@ -1,6 +1,5 @@
-import React from 'react';
 import { AppIdeaPrompt } from './components/AppIdeaPrompt.js';
 
 export const App = () => {
-	return <AppIdeaPrompt />;
+  return <AppIdeaPrompt />;
 };
