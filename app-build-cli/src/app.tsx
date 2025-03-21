@@ -1,5 +1,7 @@
-import { AppIdeaPrompt } from './components/AppIdeaPrompt.js';
+import { useApp } from 'ink';
+import { TelegramBotFlow } from './chatbot/create-chatbot.js';
 
 export const App = () => {
-  return <AppIdeaPrompt />;
+  const app = useApp();
+  return <TelegramBotFlow />;
 };
