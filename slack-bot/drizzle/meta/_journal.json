@@ -43,6 +43,13 @@
       "when": 1740851629120,
       "tag": "0005_fat_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1742499357679,
+      "tag": "0006_gray_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

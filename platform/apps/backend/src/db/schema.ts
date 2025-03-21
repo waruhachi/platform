@@ -12,6 +12,7 @@ export const chatbots = pgTable("chatbots", {
   ownerId: text("userId").notNull(),
   telegramBotToken: text(),
   flyAppId: text(),
+  s3Checksum: text(),
   traceId: text(),
   runMode: text("runMode").notNull().default("telegram"),
   typespecSchema: text(),

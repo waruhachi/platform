@@ -50,18 +50,68 @@ const job = CronJob.from({
       );
       const botStatusJson = await botStatus.json();
 
-      if (botStatusJson.flyAppId && bot.channelId) {
+      // Check for initial deployment
+      if (botStatusJson.flyAppId && !bot.deployed) {
         await app.client.chat.postMessage({
           channel: bot.channelId,
           thread_ts: bot.threadTs,
           text: `✅ The bot has been successfully deployed, go and talk to it!
-  Download the code here: ${botStatusJson.readUrl}`,
+Download the code here: ${botStatusJson.readUrl}`,
         });
 
         await db
           .update(threads)
           .set({
             deployed: true,
+            s3Checksum: botStatusJson.s3Checksum,
+          })
+          .where(eq(threads.threadTs, bot.threadTs));
+      }
+      // Check for code changes in already deployed bots
+      else if (botStatusJson.s3Checksum && botStatusJson.s3Checksum !== bot.s3Checksum) {
+        await app.client.chat.postMessage({
+          channel: bot.channelId,
+          thread_ts: bot.threadTs,
+          text: `🔄 Your bot's code has been updated and is being redeployed!`,
+        });
+
+        await db
+          .update(threads)
+          .set({
+            s3Checksum: botStatusJson.s3Checksum,
+          })
+          .where(eq(threads.threadTs, bot.threadTs));
+      }
+    }
+
+    // Also check deployed bots for code changes
+    const deployedBots = await db
+      .select()
+      .from(threads)
+      .where(and(eq(threads.deployed, true), isNotNull(threads.chatbotId)));
+
+    for (const bot of deployedBots) {
+      const botStatus = await fetch(
+        `${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
+          },
+        },
+      );
+      const botStatusJson = await botStatus.json();
+
+      if (botStatusJson.s3Checksum && botStatusJson.s3Checksum !== bot.s3Checksum) {
+        await app.client.chat.postMessage({
+          channel: bot.channelId,
+          thread_ts: bot.threadTs,
+          text: `🔄 Your bot's code has been updated and is being redeployed!`,
+        });
+
+        await db
+          .update(threads)
+          .set({
+            s3Checksum: botStatusJson.s3Checksum,
           })
           .where(eq(threads.threadTs, bot.threadTs));
       }
@@ -235,7 +285,7 @@ async function chatbotIteration({
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `Received ${generateResult.message} from the agent for chatbot ${chatbotId}.`
+        text: `${generateResult.message} from the agent for chatbot ${chatbotId}.`
       });
 
       await db

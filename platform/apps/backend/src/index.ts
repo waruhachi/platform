@@ -8,6 +8,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "dotenv";
@@ -155,6 +156,21 @@ async function getReadPresignedUrls(
   });
 
   return { readUrl };
+}
+
+async function getS3Checksum(botId: string): Promise<string | null> {
+  try {
+    const baseParams = getS3DirectoryParams(botId);
+    const headCommand = new HeadObjectCommand(baseParams);
+    const headResponse = await s3Client.send(headCommand);
+    return headResponse.ETag?.replace(/"/g, '') || null; // Remove quotes from ETag
+  } catch (error: any) {
+    // Don't log if it's just a NotFound error (expected for new bots)
+    if (error.$metadata?.httpStatusCode !== 404) {
+      console.log(`Error getting S3 checksum for bot ${botId}:`, error);
+    }
+    return null;
+  }
 }
 
 async function deployBot({
@@ -344,48 +360,50 @@ const app = fastify({
 const db = drizzle(process.env.DATABASE_URL!);
 
 const deployTask = new AsyncTask("deploy task", async (taskId) => {
-  const notDeployedBots = await db
+  const allBots = await db
     .select()
     .from(chatbots)
     .where(
-      and(
-        isNull(chatbots.flyAppId),
-        gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
-      ),
+      gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
     );
 
-  for (const bot of notDeployedBots) {
-    const { readUrl } = await getReadPresignedUrls(bot.id);
-    console.log(`${bot.id} has readUrl ${readUrl}`);
-
+  for (const bot of allBots) {
     try {
-      // Attempt to fetch the source code from S3
-      const response = await fetch(readUrl);
-
-      if (!response.ok) {
-        console.log(
-          `Failed to fetch source code for bot ${bot.id}: ${response.statusText}`,
-        );
+      // Get current S3 checksum
+      const currentChecksum = await getS3Checksum(bot.id);
+      
+      // Skip if no checksum (means no file exists) or checksum matches
+      if (!currentChecksum || currentChecksum === bot.s3Checksum) {
         continue;
       }
 
-      console.log(`Successfully fetched source code for bot ${bot.id}`);
+      console.log(`Bot ${bot.id} has new checksum ${currentChecksum}, previous was ${bot.s3Checksum}`);
 
-      if (bot.runMode === "telegram") {
-        // Check if the bot has a valid Telegram token
-        if (!bot.telegramBotToken) {
-          console.log(
-            `Bot ${bot.id} is missing a Telegram token, skipping deployment`,
-          );
-          continue;
-        }
+      const { readUrl } = await getReadPresignedUrls(bot.id);
+      
+      // Verify we can fetch the source code
+      const response = await fetch(readUrl);
+      if (!response.ok) {
+        console.log(`Failed to fetch source code for bot ${bot.id}: ${response.statusText}`);
+        continue;
       }
 
-      // If we get here, the bot has source code, so we can proceed with deployment
-      console.log(`Bot ${bot.id} is ready for deployment`);
+      if (bot.runMode === "telegram" && !bot.telegramBotToken) {
+        console.log(`Bot ${bot.id} is missing a Telegram token, skipping deployment`);
+        continue;
+      }
 
-      // TODO: Add deployment logic here
+      // Deploy the bot
       await deployBot({ botId: bot.id, readUrl });
+
+      // Update the checksum in the database
+      await db
+        .update(chatbots)
+        .set({
+          s3Checksum: currentChecksum,
+        })
+        .where(eq(chatbots.id, bot.id));
+
     } catch (error) {
       console.error(`Error processing bot ${bot.id}:`, error);
     }
@@ -463,7 +481,10 @@ app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
   const { id } = request.params as { id: string };
   const { telegramBotToken, ...columns } = getTableColumns(chatbots);
   const bot = await db
-    .select(columns)
+    .select({
+      ...columns,
+      s3Checksum: chatbots.s3Checksum,
+    })
     .from(chatbots)
     .where(eq(chatbots.id, id));
   if (!bot || !bot.length) {
