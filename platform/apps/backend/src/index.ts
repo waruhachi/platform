@@ -163,7 +163,7 @@ async function getS3Checksum(botId: string): Promise<string | null> {
     const baseParams = getS3DirectoryParams(botId);
     const headCommand = new HeadObjectCommand(baseParams);
     const headResponse = await s3Client.send(headCommand);
-    return headResponse.ETag?.replace(/"/g, '') || null; // Remove quotes from ETag
+    return headResponse.ETag?.replace(/"/g, "") || null; // Remove quotes from ETag
   } catch (error: any) {
     // Don't log if it's just a NotFound error (expected for new bots)
     if (error.$metadata?.httpStatusCode !== 404) {
@@ -363,33 +363,37 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
   const allBots = await db
     .select()
     .from(chatbots)
-    .where(
-      gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
-    );
+    .where(gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
 
   for (const bot of allBots) {
     try {
       // Get current S3 checksum
       const currentChecksum = await getS3Checksum(bot.id);
-      
+
       // Skip if no checksum (means no file exists) or checksum matches
       if (!currentChecksum || currentChecksum === bot.s3Checksum) {
         continue;
       }
 
-      console.log(`Bot ${bot.id} has new checksum ${currentChecksum}, previous was ${bot.s3Checksum}`);
+      console.log(
+        `Bot ${bot.id} has new checksum ${currentChecksum}, previous was ${bot.s3Checksum}`,
+      );
 
       const { readUrl } = await getReadPresignedUrls(bot.id);
-      
+
       // Verify we can fetch the source code
       const response = await fetch(readUrl);
       if (!response.ok) {
-        console.log(`Failed to fetch source code for bot ${bot.id}: ${response.statusText}`);
+        console.log(
+          `Failed to fetch source code for bot ${bot.id}: ${response.statusText}`,
+        );
         continue;
       }
 
       if (bot.runMode === "telegram" && !bot.telegramBotToken) {
-        console.log(`Bot ${bot.id} is missing a Telegram token, skipping deployment`);
+        console.log(
+          `Bot ${bot.id} is missing a Telegram token, skipping deployment`,
+        );
         continue;
       }
 
@@ -403,7 +407,6 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
           s3Checksum: currentChecksum,
         })
         .where(eq(chatbots.id, bot.id));
-
     } catch (error) {
       console.error(`Error processing bot ${bot.id}:`, error);
     }
@@ -661,7 +664,10 @@ app.post(
             );
           }
 
-          return reply.send({ newBot: { id: botId } });
+          return reply.send({
+            newBot: { id: botId },
+            message: `Source code uploaded successfully`,
+          });
         } else {
           // If no sourceCodeFile is provided, call the /compile endpoint as before
           let AGENT_API_URL = useStaging
@@ -704,7 +710,10 @@ app.post(
               message: string;
             } = await compileResponse.json();
 
-            return reply.send({ newBot: { id: botId }, message: `Codegen started: ${compileResponseJson.message}` });
+            return reply.send({
+              newBot: { id: botId },
+              message: `Codegen started: ${compileResponseJson.message}`,
+            });
           } else {
             const prepareResponse = await fetch(`${AGENT_API_URL}/prepare`, {
               method: "POST",
@@ -742,7 +751,7 @@ app.post(
               })
               .where(eq(chatbots.id, botId));
 
-            if (prepareResponseJson.status === 'success') {
+            if (prepareResponseJson.status === "success") {
               // From now on, we'll call /recompile instead of /prepare
               await db
                 .update(chatbots)
@@ -759,11 +768,31 @@ app.post(
               kind: "agent",
             });
 
+            // Deploy an under-construction page to the fly app
+            const underConstructionImage =
+              "registry.fly.io/under-construction:deployment-01JPZ5ZGCQT6DFV1H2B97X6W09";
+            const flyAppName = `app-${botId}`;
+
+            try {
+              execSync(
+                `${flyBinary} launch --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
+                { stdio: "inherit" },
+              );
+            } catch (error) {
+              console.error("Error deploying under-construction page:", error);
+              return reply.send({
+                newBot: { id: botId },
+                message: `Failed to deploy under-construction page: ${error}`,
+              });
+            }
+
             return reply.send({
               newBot: {
                 id: botId,
               },
-              message: prepareResponseJson.message,
+              message:
+                prepareResponseJson.message +
+                ` Under-construction page deployed successfully: https://${flyAppName}.fly.dev`,
             });
           }
         }

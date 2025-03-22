@@ -68,7 +68,10 @@ Download the code here: ${botStatusJson.readUrl}`,
           .where(eq(threads.threadTs, bot.threadTs));
       }
       // Check for code changes in already deployed bots
-      else if (botStatusJson.s3Checksum && botStatusJson.s3Checksum !== bot.s3Checksum) {
+      else if (
+        botStatusJson.s3Checksum &&
+        botStatusJson.s3Checksum !== bot.s3Checksum
+      ) {
         await app.client.chat.postMessage({
           channel: bot.channelId,
           thread_ts: bot.threadTs,
@@ -101,7 +104,10 @@ Download the code here: ${botStatusJson.readUrl}`,
       );
       const botStatusJson = await botStatus.json();
 
-      if (botStatusJson.s3Checksum && botStatusJson.s3Checksum !== bot.s3Checksum) {
+      if (
+        botStatusJson.s3Checksum &&
+        botStatusJson.s3Checksum !== bot.s3Checksum
+      ) {
         await app.client.chat.postMessage({
           channel: bot.channelId,
           thread_ts: bot.threadTs,
@@ -285,7 +291,7 @@ async function chatbotIteration({
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `${generateResult.message} from the agent for chatbot ${chatbotId}.`
+        text: `${generateResult.message} from the agent for chatbot ${chatbotId}.`,
       });
 
       await db
@@ -406,7 +412,7 @@ app.message("", async ({ event, logger }) => {
   if (!event.user) {
     return;
   }
-  
+
   const threadResult = await db
     .select()
     .from(threads)
@@ -417,7 +423,7 @@ app.message("", async ({ event, logger }) => {
   if (threadResult.length !== 1) {
     return;
   }
-  
+
   if (event.user !== threadResult[0].authorId) {
     return;
   }
@@ -528,7 +534,12 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
   const codeMode = "generate"; // Default to generate code
 
   // Use the buildModalBlocks function for consistency
-  const blocks = buildModalBlocks(initialRunMode, tokenValue, isStaging, codeMode);
+  const blocks = buildModalBlocks(
+    initialRunMode,
+    tokenValue,
+    isStaging,
+    codeMode,
+  );
 
   await client.views.open({
     trigger_id: actionBody.trigger_id,
@@ -683,9 +694,13 @@ function buildModalBlocks(
   runMode: string,
   tokenValue: string,
   isStaging: boolean,
-  codeMode: string = "generate" // Default to generate code
+  codeMode: string = "generate", // Default to generate code
 ) {
-  console.log("Building modal blocks with params:", { runMode, isStaging, codeMode });
+  console.log("Building modal blocks with params:", {
+    runMode,
+    isStaging,
+    codeMode,
+  });
   const blocks: any[] = [];
 
   // Add the code mode selection block (always first)
@@ -800,7 +815,7 @@ function buildModalBlocks(
       },
     });
   }
-  
+
   // Only add the staging block if generate code mode is selected
   if (codeMode === "generate") {
     const checkboxAccessory: any = {
@@ -829,7 +844,7 @@ function buildModalBlocks(
         },
       ];
     }
-    
+
     blocks.push({
       type: "section",
       block_id: "staging_block",
@@ -912,7 +927,12 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
   console.log("isStaging:", isStaging);
 
   // Build the blocks
-  const newBlocks = buildModalBlocks(selectedRunMode, tokenValue, isStaging, codeMode);
+  const newBlocks = buildModalBlocks(
+    selectedRunMode,
+    tokenValue,
+    isStaging,
+    codeMode,
+  );
 
   console.log(
     "New blocks:",
@@ -1084,7 +1104,12 @@ app.action("code_mode_radio", async ({ ack, body, client }) => {
   console.log("isStaging:", isStaging);
 
   // Build the blocks with the new code mode
-  const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging, selectedCodeMode);
+  const newBlocks = buildModalBlocks(
+    runMode,
+    tokenValue,
+    isStaging,
+    selectedCodeMode,
+  );
 
   console.log(
     "New blocks:",
