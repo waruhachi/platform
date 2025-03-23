@@ -334,7 +334,7 @@ CMD [ "bun", "run", "start" ]
 
   console.log("deploying fly app");
   execSync(
-    `${flyBinary} deploy --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
+    `${flyBinary} deploy --yes --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
     {
       cwd: packageJsonDirectory,
       stdio: "inherit",
@@ -775,7 +775,7 @@ app.post(
 
             try {
               execSync(
-                `${flyBinary} launch --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
+                `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
                 { stdio: "inherit" },
               );
             } catch (error) {
