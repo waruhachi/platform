@@ -13,6 +13,7 @@ export const chatbots = pgTable("chatbots", {
   telegramBotToken: text(),
   flyAppId: text(),
   s3Checksum: text(),
+  deployStatus: text().default("pending"), // pending, deploying, deployed, failed
   traceId: text(),
   runMode: text("runMode").notNull().default("telegram"),
   typespecSchema: text(),

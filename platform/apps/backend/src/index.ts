@@ -16,7 +16,16 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
-import { desc, eq, getTableColumns, sql, isNull, and, gt } from "drizzle-orm";
+import {
+  desc,
+  eq,
+  getTableColumns,
+  sql,
+  isNull,
+  and,
+  gt,
+  ne,
+} from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 
@@ -188,6 +197,7 @@ async function deployBot({
     .select({
       telegramBotToken: chatbots.telegramBotToken,
       runMode: chatbots.runMode,
+      deployStatus: chatbots.deployStatus,
     })
     .from(chatbots)
     .where(eq(chatbots.id, botId));
@@ -195,6 +205,18 @@ async function deployBot({
   if (!bot[0]) {
     throw new Error(`Bot ${botId} not found`);
   }
+
+  // deployed is okay, but deploying is not
+  if (bot[0].deployStatus === "deploying") {
+    throw new Error(`Bot ${botId} is already being deployed`);
+  }
+
+  await db
+    .update(chatbots)
+    .set({
+      deployStatus: "deploying",
+    })
+    .where(eq(chatbots.id, botId));
 
   // Create downloads directory
   fs.mkdirSync(downloadDir, { recursive: true });
@@ -308,6 +330,7 @@ CMD [ "bun", "run", "start" ]
     console.error("Error destroying fly app:", error);
   }
 
+  console.log("fly launch is starting");
   execSync(
     `${flyBinary} launch -y ${envVarsString} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
     { cwd: packageJsonDirectory, stdio: "inherit" },
@@ -341,6 +364,13 @@ CMD [ "bun", "run", "start" ]
     },
   );
   console.log("fly deploy is over");
+
+  await db
+    .update(chatbots)
+    .set({
+      deployStatus: "deployed",
+    })
+    .where(eq(chatbots.id, botId));
 
   if (process.env.NODE_ENV === "production") {
     if (fs.existsSync(downloadDir)) {
@@ -545,34 +575,6 @@ app.post(
 
       console.log("request.body", request.body);
 
-      // Find all existing apps with `telegramBotToken` and destroy them one by one.
-      const existingBots = await db
-        .select({
-          flyAppId: chatbots.flyAppId,
-        })
-        .from(chatbots)
-        .where(eq(chatbots.telegramBotToken, telegramBotToken));
-
-      console.log("existingBots", existingBots);
-
-      if (existingBots.length > 0) {
-        for (const existingBot of existingBots) {
-          if (existingBot.flyAppId) {
-            console.log(`Destroying ${existingBot.flyAppId}`);
-            try {
-              execSync(
-                `${flyBinary} apps destroy ${existingBot.flyAppId} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
-                {
-                  stdio: "inherit",
-                },
-              );
-            } catch (error) {
-              console.error("Error destroying fly app:", error);
-            }
-          }
-        }
-      }
-
       let botId = request.body.botId;
       if (!botId) {
         botId = uuidv4();
@@ -770,7 +772,7 @@ app.post(
 
             // Deploy an under-construction page to the fly app
             const underConstructionImage =
-              "registry.fly.io/under-construction:deployment-01JPZ5ZGCQT6DFV1H2B97X6W09";
+              "registry.fly.io/under-construction:deployment-01JQ4JD8TKSW37KP9MR44B3DNB";
             const flyAppName = `app-${botId}`;
 
             try {

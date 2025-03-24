@@ -291,7 +291,7 @@ async function chatbotIteration({
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `${generateResult.message} from the agent for chatbot ${chatbotId}.`,
+        text: `[Chatbot ID: ${chatbotId}] ${generateResult.message}`,
       });
 
       await db
