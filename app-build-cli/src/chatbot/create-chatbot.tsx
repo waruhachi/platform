@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Box, Text } from 'ink';
 import { FreeText } from '../components/shared/FreeText.js';
 import { Select } from '../components/shared/Select.js';
-import { type ChatbotGenerationResult } from '../deploy-chatbot.js';
+import { type ChatbotGenerationResult } from './deploy-chatbot.js';
 import { GenerateStep } from './generate-step.js';
 
 type TelegramBotConfig = {
@@ -56,7 +56,7 @@ const steps = {
 
 type Step = keyof typeof steps;
 
-export const TelegramBotFlow = () => {
+export const ChatBotFlow = () => {
   const [step, setStep] = useState<Step>('token');
   const [config, setConfig] = useState<TelegramBotConfig>({
     telegramBotToken: '',
@@ -67,7 +67,6 @@ export const TelegramBotFlow = () => {
 
   const [chatbot, setChatbot] = useState<ChatbotGenerationResult | null>(null);
 
-  // Configuration Steps
   const stepContent = () => {
     switch (step) {
       case 'token':

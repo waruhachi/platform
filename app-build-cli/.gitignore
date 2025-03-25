@@ -1,2 +1,5 @@
 node_modules
-dist
+
+# TODO: remove this once we add proper Auth
+# we need the dist folder for `npx` through github
+!dist
