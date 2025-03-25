@@ -4,6 +4,13 @@
     "app-build-cli": "./app-build-cli/dist/cli.js"
   },
   "dependencies": {
-    "app-build-cli": "file:./app-build-cli"
+    "@inkjs/ui": "2.0.0",
+    "dotenv": "^16.4.7",
+    "ink": "5.2.0",
+    "ink-syntax-highlight": "2.0.2",
+    "meow": "13.2.0",
+    "react": "^18.2.0",
+    "ink-spinner": "^5.0.0",
+    "node-fetch": "3.3.2"
   }
 }
