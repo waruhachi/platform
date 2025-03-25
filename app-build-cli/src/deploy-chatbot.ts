@@ -47,6 +47,7 @@ export const generateChatbot = async (
       useStaging: params.useStaging,
       runMode: params.runMode,
       botId: params.botId,
+      clientSource: 'cli',
     };
 
     // If a source code file ID is provided, add it to the request

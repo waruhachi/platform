@@ -1,0 +1,1 @@
+ALTER TABLE "chatbots" ADD COLUMN "clientSource" text DEFAULT 'slack' NOT NULL;

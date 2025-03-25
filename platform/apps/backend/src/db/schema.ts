@@ -19,6 +19,7 @@ export const chatbots = pgTable("chatbots", {
   typespecSchema: text(),
   receivedSuccess: boolean("receivedSuccess").notNull().default(false),
   recompileInProgress: boolean("recompileInProgress").notNull().default(false),
+  clientSource: text("clientSource").notNull().default("slack"), // "slack" or "cli"
 });
 
 export const chatbotPrompts = pgTable("chatbot_prompts", {

@@ -230,6 +230,7 @@ async function chatbotIteration({
       useStaging,
       runMode,
       botId,
+      clientSource: 'slack',
     };
 
     // If a source code file ID is provided, download the file and prepare to send it

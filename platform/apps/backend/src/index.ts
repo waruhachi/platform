@@ -559,6 +559,7 @@ app.post(
         runMode: string;
         sourceCodeFile?: { name: string; content: string };
         botId?: string;
+        clientSource: string;
       };
     }>,
     reply: FastifyReply,
@@ -571,6 +572,7 @@ app.post(
         useStaging,
         runMode,
         sourceCodeFile,
+        clientSource,
       } = request.body;
 
       console.log("request.body", request.body);
@@ -596,6 +598,7 @@ app.post(
           ownerId: userId,
           telegramBotToken,
           runMode,
+          clientSource,
         })
         .onConflictDoUpdate({
           target: chatbots.id,
