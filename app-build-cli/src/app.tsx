@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { TelegramBotFlow } from './chatbot/create-chatbot.js';
+import { ChatBotFlow } from './chatbot/create-chatbot.js';
 
 // refresh the app every 100ms
 const useKeepAlive = () =>
@@ -9,5 +9,5 @@ const useKeepAlive = () =>
 
 export const App = () => {
   useKeepAlive();
-  return <TelegramBotFlow />;
+  return <ChatBotFlow />;
 };

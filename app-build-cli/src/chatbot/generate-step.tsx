@@ -5,7 +5,7 @@ import { FreeText } from '../components/shared/FreeText.js';
 import {
   generateChatbot,
   type ChatbotGenerationResult,
-} from '../deploy-chatbot.js';
+} from './deploy-chatbot.js';
 
 type GenerateStepProps = {
   config: {
