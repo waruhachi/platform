@@ -2,5 +2,8 @@
   "name": "bot-new-slack-bot",
   "bin": {
     "slack-bot-cli": "./app-build-cli/dist/cli.js"
+  },
+  "scripts": {
+    "postinstall": "cd app-build-cli && npm install"
   }
 }
