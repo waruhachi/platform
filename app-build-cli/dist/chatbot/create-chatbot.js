@@ -1,10 +1,13 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from 'react';
 import { Box, Text } from 'ink';
-import { FreeText } from '../components/shared/FreeText.js';
-import { Select } from '../components/shared/Select.js';
 import {} from './chatbot.js';
-import { GenerateSpecsStep, GenerateStep } from './generate-step.js';
+import { EnvironmentStep } from './steps/EnvironmentStep.js';
+import { GenerateSpecsStep } from './steps/GenerateSpecsStep.js';
+import { GenerateStep } from './steps/GenerateStep.js';
+import { RunModeStep } from './steps/RunModeStep.js';
+import { SuccessStep } from './steps/SuccessStep.js';
+import { TokenStep } from './steps/TokenStep.js';
 const steps = {
     runMode: {
         label: 'Application Type',
@@ -63,27 +66,11 @@ export const ChatBotFlow = () => {
     const stepContent = () => {
         switch (step) {
             case 'token':
-                return (_jsx(FreeText, { question: steps.token.question, placeholder: steps.token.placeholder, onSubmit: (telegramBotToken) => {
-                        setConfig((prev) => ({ ...prev, telegramBotToken }));
-                        setStep(steps[step].nextStep);
-                    } }));
+                return (_jsx(TokenStep, { config: config, setConfig: setConfig, setStep: setStep, steps: steps, step: step }));
             case 'environment':
-                return (_jsx(Select, { question: steps.environment.question, options: steps.environment.options, onSubmit: (environment) => {
-                        setConfig((prev) => ({
-                            ...prev,
-                            useStaging: environment === 'staging',
-                        }));
-                        setStep(steps[step].nextStep);
-                    } }));
+                return (_jsx(EnvironmentStep, { config: config, setConfig: setConfig, setStep: setStep, steps: steps, step: step }));
             case 'runMode':
-                return (_jsx(Select, { question: steps.runMode.question, options: steps.runMode.options, onSubmit: (runMode) => {
-                        const newConfig = {
-                            ...config,
-                            runMode: runMode,
-                        };
-                        setConfig(newConfig);
-                        setStep(steps[step].nextStep(newConfig));
-                    } }));
+                return (_jsx(RunModeStep, { config: config, setConfig: setConfig, setStep: setStep, steps: steps, step: step }));
             case 'generateChatbotSpecs':
                 return (_jsx(GenerateSpecsStep, { config: config, chatbot: chatbot, onSuccess: (result, prompt) => {
                         console.log('result', result);
@@ -99,13 +86,9 @@ export const ChatBotFlow = () => {
                         setStep(steps[step].nextStep);
                     } }));
             case 'successGeneration':
-                // Success State
                 if (chatbot?.success) {
-                    return (_jsxs(Box, { flexDirection: "column", padding: 1, children: [_jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "green", padding: 1, marginBottom: 1, children: [_jsxs(Box, { children: [_jsxs(Text, { backgroundColor: "green", color: "black", bold: true, children: [' ', "SUCCESS", ' '] }), _jsxs(Text, { color: "green", bold: true, children: [' ', "Chatbot created successfully!"] })] }), _jsxs(Box, { marginLeft: 2, marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Chatbot ID: " }), _jsx(Text, { bold: true, children: chatbot.chatbotId })] }), chatbot.message && (_jsxs(Box, { marginLeft: 2, children: [_jsx(Text, { dimColor: true, children: "Message: " }), _jsx(Text, { children: chatbot.message })] }))] }), _jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, children: [_jsx(Text, { bold: true, underline: true, children: "Configuration Summary" }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Bot Token: " }), _jsx(Text, { color: "green", children: config.telegramBotToken })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Environment: " }), _jsx(Text, { color: "green", children: config.useStaging ? 'Staging' : 'Production' })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Run Mode: " }), _jsx(Text, { color: "green", children: config.runMode })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Prompt: " }), _jsx(Text, { color: "green", children: config.prompt })] })] }), _jsxs(Box, { marginTop: 2, flexDirection: "column", children: [_jsx(Text, { bold: true, children: "Next Steps:" }), _jsxs(Text, { children: ["1. Save your Chatbot ID:", ' ', _jsx(Text, { color: "yellow", bold: true, children: chatbot.chatbotId })] }), _jsxs(Text, { children: ["2.", ' ', config.runMode === 'telegram'
-                                                ? 'Open Telegram and start chatting with your bot!'
-                                                : 'Your HTTP server is ready to accept requests.'] }), _jsx(Box, { marginTop: 1, children: _jsx(Text, { dimColor: true, italic: true, children: "Press Ctrl+C to exit" }) })] })] }));
+                    return _jsx(SuccessStep, { chatbot: chatbot, config: config });
                 }
-                // This should never happen as we stay in step 3 on error
                 return null;
             default:
                 return null;

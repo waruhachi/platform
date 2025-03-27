@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import { Box, Text } from 'ink';
-import { FreeText } from '../components/shared/FreeText.js';
-import { Select } from '../components/shared/Select.js';
 import { type ChatbotGenerationResult } from './chatbot.js';
-import { GenerateSpecsStep, GenerateStep } from './generate-step.js';
-
-type ChatBotConfig = {
-  telegramBotToken: string;
-  useStaging: boolean;
-  runMode: 'telegram' | 'http-server';
-  prompt: string;
-};
+import { EnvironmentStep } from './steps/EnvironmentStep.js';
+import { GenerateSpecsStep } from './steps/GenerateSpecsStep.js';
+import { GenerateStep } from './steps/GenerateStep.js';
+import { RunModeStep } from './steps/RunModeStep.js';
+import { SuccessStep } from './steps/SuccessStep.js';
+import { TokenStep } from './steps/TokenStep.js';
+import type { ChatBotConfig, StepType } from './steps/types.js';
 
 const steps = {
   runMode: {
@@ -58,12 +55,10 @@ const steps = {
     question: 'Chatbot created successfully!',
     nextStep: 'success' as const,
   },
-};
-
-type Step = keyof typeof steps;
+} as const;
 
 export const ChatBotFlow = () => {
-  const [step, setStep] = useState<Step>('runMode');
+  const [step, setStep] = useState<StepType>('runMode');
   const [config, setConfig] = useState<ChatBotConfig>({
     telegramBotToken: '',
     useStaging: false,
@@ -77,42 +72,32 @@ export const ChatBotFlow = () => {
     switch (step) {
       case 'token':
         return (
-          <FreeText
-            question={steps.token.question}
-            placeholder={steps.token.placeholder}
-            onSubmit={(telegramBotToken) => {
-              setConfig((prev) => ({ ...prev, telegramBotToken }));
-              setStep(steps[step].nextStep);
-            }}
+          <TokenStep
+            config={config}
+            setConfig={setConfig}
+            setStep={setStep}
+            steps={steps}
+            step={step}
           />
         );
       case 'environment':
         return (
-          <Select
-            question={steps.environment.question}
-            options={steps.environment.options}
-            onSubmit={(environment) => {
-              setConfig((prev) => ({
-                ...prev,
-                useStaging: environment === 'staging',
-              }));
-              setStep(steps[step].nextStep);
-            }}
+          <EnvironmentStep
+            config={config}
+            setConfig={setConfig}
+            setStep={setStep}
+            steps={steps}
+            step={step}
           />
         );
       case 'runMode':
         return (
-          <Select
-            question={steps.runMode.question}
-            options={steps.runMode.options}
-            onSubmit={(runMode) => {
-              const newConfig = {
-                ...config,
-                runMode: runMode as 'telegram' | 'http-server',
-              };
-              setConfig(newConfig);
-              setStep(steps[step].nextStep(newConfig));
-            }}
+          <RunModeStep
+            config={config}
+            setConfig={setConfig}
+            setStep={setStep}
+            steps={steps}
+            step={step}
           />
         );
       case 'generateChatbotSpecs':
@@ -142,93 +127,9 @@ export const ChatBotFlow = () => {
           />
         );
       case 'successGeneration':
-        // Success State
         if (chatbot?.success) {
-          return (
-            <Box flexDirection="column" padding={1}>
-              <Box
-                flexDirection="column"
-                borderStyle="round"
-                borderColor="green"
-                padding={1}
-                marginBottom={1}
-              >
-                <Box>
-                  <Text backgroundColor="green" color="black" bold>
-                    {' '}
-                    SUCCESS{' '}
-                  </Text>
-                  <Text color="green" bold>
-                    {' '}
-                    Chatbot created successfully!
-                  </Text>
-                </Box>
-                <Box marginLeft={2} marginTop={1}>
-                  <Text dimColor>Chatbot ID: </Text>
-                  <Text bold>{chatbot.chatbotId}</Text>
-                </Box>
-                {chatbot.message && (
-                  <Box marginLeft={2}>
-                    <Text dimColor>Message: </Text>
-                    <Text>{chatbot.message}</Text>
-                  </Box>
-                )}
-              </Box>
-
-              <Box
-                flexDirection="column"
-                borderStyle="round"
-                borderColor="blue"
-                padding={1}
-              >
-                <Text bold underline>
-                  Configuration Summary
-                </Text>
-                <Box marginTop={1}>
-                  <Text dimColor>Bot Token: </Text>
-                  <Text color="green">{config.telegramBotToken}</Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Environment: </Text>
-                  <Text color="green">
-                    {config.useStaging ? 'Staging' : 'Production'}
-                  </Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Run Mode: </Text>
-                  <Text color="green">{config.runMode}</Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Prompt: </Text>
-                  <Text color="green">{config.prompt}</Text>
-                </Box>
-              </Box>
-
-              <Box marginTop={2} flexDirection="column">
-                <Text bold>Next Steps:</Text>
-                <Text>
-                  1. Save your Chatbot ID:{' '}
-                  <Text color="yellow" bold>
-                    {chatbot.chatbotId}
-                  </Text>
-                </Text>
-                <Text>
-                  2.{' '}
-                  {config.runMode === 'telegram'
-                    ? 'Open Telegram and start chatting with your bot!'
-                    : 'Your HTTP server is ready to accept requests.'}
-                </Text>
-                <Box marginTop={1}>
-                  <Text dimColor italic>
-                    Press Ctrl+C to exit
-                  </Text>
-                </Box>
-              </Box>
-            </Box>
-          );
+          return <SuccessStep chatbot={chatbot} config={config} />;
         }
-
-        // This should never happen as we stay in step 3 on error
         return null;
       default:
         return null;

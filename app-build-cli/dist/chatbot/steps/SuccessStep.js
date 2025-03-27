@@ -1,0 +1,12 @@
+import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
+import { Box, Text } from 'ink';
+import {} from '../chatbot.js';
+import {} from './types.js';
+export const SuccessStep = ({ chatbot, config }) => {
+    if (!chatbot?.success)
+        return null;
+    return (_jsxs(Box, { flexDirection: "column", padding: 1, children: [_jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "green", padding: 1, marginBottom: 1, children: [_jsxs(Box, { children: [_jsxs(Text, { backgroundColor: "green", color: "black", bold: true, children: [' ', "SUCCESS", ' '] }), _jsxs(Text, { color: "green", bold: true, children: [' ', "Chatbot created successfully!"] })] }), _jsxs(Box, { marginLeft: 2, marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Chatbot ID: " }), _jsx(Text, { bold: true, children: chatbot.chatbotId })] }), chatbot.message && (_jsxs(Box, { marginLeft: 2, children: [_jsx(Text, { dimColor: true, children: "Message: " }), _jsx(Text, { children: chatbot.message })] }))] }), _jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, children: [_jsx(Text, { bold: true, underline: true, children: "Configuration Summary" }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Bot Token: " }), _jsx(Text, { color: "green", children: config.telegramBotToken })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Environment: " }), _jsx(Text, { color: "green", children: config.useStaging ? 'Staging' : 'Production' })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Run Mode: " }), _jsx(Text, { color: "green", children: config.runMode })] }), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { dimColor: true, children: "Prompt: " }), _jsx(Text, { color: "green", children: config.prompt })] })] }), _jsxs(Box, { marginTop: 2, flexDirection: "column", children: [_jsx(Text, { bold: true, children: "Next Steps:" }), _jsxs(Text, { children: ["1. Save your Chatbot ID:", ' ', _jsx(Text, { color: "yellow", bold: true, children: chatbot.chatbotId })] }), _jsxs(Text, { children: ["2.", ' ', config.runMode === 'telegram'
+                                ? 'Open Telegram and start chatting with your bot!'
+                                : 'Your HTTP server is ready to accept requests.'] }), _jsx(Box, { marginTop: 1, children: _jsx(Text, { dimColor: true, italic: true, children: "Press Ctrl+C to exit" }) })] })] }));
+};
+//# sourceMappingURL=SuccessStep.js.map
