@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import fetch from 'node-fetch';
+import os from 'os';
 
 // Load environment variables from .env file
 config();
@@ -12,10 +13,17 @@ if (process.env.NODE_ENV === 'production') {
   // BACKEND_API_HOST = 'http://localhost:4444';
 }
 
+function generateMachineId(): string {
+  const hostname = os.hostname();
+  const username = os.userInfo().username;
+
+  const machineInfo = `${hostname}-${username}`;
+  return machineInfo;
+}
+
 interface ChatbotGenerationParams {
   telegramBotToken?: string;
   prompt: string;
-  userId: string;
   useStaging: boolean;
   runMode: 'telegram' | 'http-server';
   sourceCodeFileId?: string;
@@ -37,13 +45,11 @@ export const generateChatbot = async (
   params: ChatbotGenerationParams
 ): Promise<ChatbotGenerationResult> => {
   try {
-    console.log('calling generate endpoint');
-
     const requestBody: any = {
       prompt: params.prompt,
       telegramBotToken:
         params.runMode === 'telegram' ? params.telegramBotToken : undefined,
-      userId: params.userId,
+      userId: generateMachineId(),
       useStaging: params.useStaging,
       runMode: params.runMode,
       botId: params.botId,
@@ -134,24 +140,3 @@ export const checkBotDeploymentStatus = async (chatbotId: string) => {
     };
   }
 };
-
-/*
-export const updateBotDeploymentStatus = async (
-  threadTs: string,
-  deployed: boolean
-) => {
-  try {
-    await db
-      .update(threads)
-      .set({
-        deployed,
-      })
-      .where(eq(threads.threadTs, threadTs));
-
-    return true;
-  } catch (error) {
-    console.error('Error updating bot deployment status:', error);
-    return false;
-  }
-};
-*/

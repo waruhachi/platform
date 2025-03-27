@@ -3,51 +3,56 @@ import { useState } from 'react';
 import { Box, Text } from 'ink';
 import { FreeText } from '../components/shared/FreeText.js';
 import { Select } from '../components/shared/Select.js';
-import {} from './deploy-chatbot.js';
-import { GenerateStep } from './generate-step.js';
+import {} from './chatbot.js';
+import { GenerateSpecsStep, GenerateStep } from './generate-step.js';
 const steps = {
+    runMode: {
+        label: 'Application Type',
+        question: 'Select the application type:',
+        options: [
+            { label: 'Telegram Bot', value: 'telegram' },
+            { label: 'HTTP Server', value: 'http-server' },
+        ],
+        nextStep: (config) => config.runMode === 'telegram'
+            ? 'token'
+            : 'environment',
+    },
     token: {
-        number: 1,
         label: 'Bot Configuration',
         question: 'Enter your Telegram Bot Token:',
         placeholder: 'e.g., 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz',
         nextStep: 'environment',
     },
     environment: {
-        number: 2,
         label: 'Environment Selection',
         question: 'Choose where your chatbot will run:',
         options: [
-            { label: '🚀 Production - For live deployment', value: 'true' },
-            { label: '🔧 Staging - For testing', value: 'false' },
+            {
+                label: '🚀 Production - For live deployment',
+                value: 'production',
+            },
+            { label: '🔧 Staging - For testing', value: 'staging' },
         ],
-        nextStep: 'runMode',
+        nextStep: 'generateChatbotSpecs',
     },
-    runMode: {
-        number: 3,
-        label: 'Run Mode Selection',
-        question: 'Select the run mode:',
-        options: [
-            { label: 'Telegram Bot', value: 'telegram' },
-            { label: 'HTTP Server', value: 'http-server' },
-        ],
-        nextStep: 'generate',
+    generateChatbotSpecs: {
+        label: 'Generating Chatbot specs',
+        question: 'Generating the specs for your chatbot...',
+        nextStep: 'generateChatbot',
     },
-    generate: {
-        number: 4,
-        label: 'Generation',
+    generateChatbot: {
+        label: 'Generating Chatbot',
         question: 'Generating your chatbot...',
         nextStep: 'successGeneration',
     },
     successGeneration: {
-        number: 5,
         label: 'Success',
         question: 'Chatbot created successfully!',
         nextStep: 'success',
     },
 };
 export const ChatBotFlow = () => {
-    const [step, setStep] = useState('token');
+    const [step, setStep] = useState('runMode');
     const [config, setConfig] = useState({
         telegramBotToken: '',
         useStaging: false,
@@ -60,29 +65,38 @@ export const ChatBotFlow = () => {
             case 'token':
                 return (_jsx(FreeText, { question: steps.token.question, placeholder: steps.token.placeholder, onSubmit: (telegramBotToken) => {
                         setConfig((prev) => ({ ...prev, telegramBotToken }));
-                        setStep(steps.token.nextStep);
+                        setStep(steps[step].nextStep);
                     } }));
             case 'environment':
-                return (_jsx(Select, { question: steps.environment.question, options: steps.environment.options, onSubmit: (useStaging) => {
+                return (_jsx(Select, { question: steps.environment.question, options: steps.environment.options, onSubmit: (environment) => {
                         setConfig((prev) => ({
                             ...prev,
-                            useStaging: useStaging === 'true',
+                            useStaging: environment === 'staging',
                         }));
-                        setStep(steps.environment.nextStep);
+                        setStep(steps[step].nextStep);
                     } }));
             case 'runMode':
                 return (_jsx(Select, { question: steps.runMode.question, options: steps.runMode.options, onSubmit: (runMode) => {
-                        setConfig((prev) => ({
-                            ...prev,
+                        const newConfig = {
+                            ...config,
                             runMode: runMode,
-                        }));
-                        setStep(steps.runMode.nextStep);
+                        };
+                        setConfig(newConfig);
+                        setStep(steps[step].nextStep(newConfig));
                     } }));
-            case 'generate':
-                return (_jsx(GenerateStep, { config: config, onSuccess: (result, prompt) => {
+            case 'generateChatbotSpecs':
+                return (_jsx(GenerateSpecsStep, { config: config, chatbot: chatbot, onSuccess: (result, prompt) => {
+                        console.log('result', result);
                         setChatbot(result);
                         setConfig((prev) => ({ ...prev, prompt }));
-                        setStep(steps.generate.nextStep);
+                        setStep(steps[step].nextStep);
+                    } }));
+            case 'generateChatbot':
+                return (_jsx(GenerateStep, { config: config, chatbot: chatbot, onSuccess: (result, prompt) => {
+                        console.log('result', result);
+                        setChatbot(result);
+                        setConfig((prev) => ({ ...prev, prompt }));
+                        setStep(steps[step].nextStep);
                     } }));
             case 'successGeneration':
                 // Success State
@@ -97,6 +111,6 @@ export const ChatBotFlow = () => {
                 return null;
         }
     };
-    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Box, { marginBottom: 1, children: _jsxs(Text, { color: "blue", bold: true, children: ["Step ", steps[step].number, " of ", steps.successGeneration.number, ":", ' ', steps[step].label] }) }), stepContent()] }));
+    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { color: "blue", bold: true, children: steps[step].label }) }), stepContent()] }));
 };
 //# sourceMappingURL=create-chatbot.js.map

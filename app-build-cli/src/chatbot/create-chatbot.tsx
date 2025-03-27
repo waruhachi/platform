@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Box, Text } from 'ink';
 import { FreeText } from '../components/shared/FreeText.js';
 import { Select } from '../components/shared/Select.js';
-import { type ChatbotGenerationResult } from './deploy-chatbot.js';
-import { GenerateStep } from './generate-step.js';
+import { type ChatbotGenerationResult } from './chatbot.js';
+import { GenerateSpecsStep, GenerateStep } from './generate-step.js';
 
-type TelegramBotConfig = {
+type ChatBotConfig = {
   telegramBotToken: string;
   useStaging: boolean;
   runMode: 'telegram' | 'http-server';
@@ -13,41 +13,47 @@ type TelegramBotConfig = {
 };
 
 const steps = {
+  runMode: {
+    label: 'Application Type',
+    question: 'Select the application type:',
+    options: [
+      { label: 'Telegram Bot', value: 'telegram' },
+      { label: 'HTTP Server', value: 'http-server' },
+    ],
+    nextStep: (config: ChatBotConfig) =>
+      config.runMode === 'telegram'
+        ? ('token' as const)
+        : ('environment' as const),
+  },
   token: {
-    number: 1,
     label: 'Bot Configuration',
     question: 'Enter your Telegram Bot Token:',
     placeholder: 'e.g., 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz',
     nextStep: 'environment' as const,
   },
   environment: {
-    number: 2,
     label: 'Environment Selection',
     question: 'Choose where your chatbot will run:',
     options: [
-      { label: '🚀 Production - For live deployment', value: 'true' },
-      { label: '🔧 Staging - For testing', value: 'false' },
+      {
+        label: '🚀 Production - For live deployment',
+        value: 'production' as const,
+      },
+      { label: '🔧 Staging - For testing', value: 'staging' as const },
     ],
-    nextStep: 'runMode' as const,
+    nextStep: 'generateChatbotSpecs' as const,
   },
-  runMode: {
-    number: 3,
-    label: 'Run Mode Selection',
-    question: 'Select the run mode:',
-    options: [
-      { label: 'Telegram Bot', value: 'telegram' },
-      { label: 'HTTP Server', value: 'http-server' },
-    ],
-    nextStep: 'generate' as const,
+  generateChatbotSpecs: {
+    label: 'Generating Chatbot specs',
+    question: 'Generating the specs for your chatbot...',
+    nextStep: 'generateChatbot' as const,
   },
-  generate: {
-    number: 4,
-    label: 'Generation',
+  generateChatbot: {
+    label: 'Generating Chatbot',
     question: 'Generating your chatbot...',
     nextStep: 'successGeneration' as const,
   },
   successGeneration: {
-    number: 5,
     label: 'Success',
     question: 'Chatbot created successfully!',
     nextStep: 'success' as const,
@@ -57,8 +63,8 @@ const steps = {
 type Step = keyof typeof steps;
 
 export const ChatBotFlow = () => {
-  const [step, setStep] = useState<Step>('token');
-  const [config, setConfig] = useState<TelegramBotConfig>({
+  const [step, setStep] = useState<Step>('runMode');
+  const [config, setConfig] = useState<ChatBotConfig>({
     telegramBotToken: '',
     useStaging: false,
     runMode: 'telegram',
@@ -76,7 +82,7 @@ export const ChatBotFlow = () => {
             placeholder={steps.token.placeholder}
             onSubmit={(telegramBotToken) => {
               setConfig((prev) => ({ ...prev, telegramBotToken }));
-              setStep(steps.token.nextStep);
+              setStep(steps[step].nextStep);
             }}
           />
         );
@@ -85,12 +91,12 @@ export const ChatBotFlow = () => {
           <Select
             question={steps.environment.question}
             options={steps.environment.options}
-            onSubmit={(useStaging) => {
+            onSubmit={(environment) => {
               setConfig((prev) => ({
                 ...prev,
-                useStaging: useStaging === 'true',
+                useStaging: environment === 'staging',
               }));
-              setStep(steps.environment.nextStep);
+              setStep(steps[step].nextStep);
             }}
           />
         );
@@ -100,22 +106,38 @@ export const ChatBotFlow = () => {
             question={steps.runMode.question}
             options={steps.runMode.options}
             onSubmit={(runMode) => {
-              setConfig((prev) => ({
-                ...prev,
+              const newConfig = {
+                ...config,
                 runMode: runMode as 'telegram' | 'http-server',
-              }));
-              setStep(steps.runMode.nextStep);
+              };
+              setConfig(newConfig);
+              setStep(steps[step].nextStep(newConfig));
             }}
           />
         );
-      case 'generate':
+      case 'generateChatbotSpecs':
+        return (
+          <GenerateSpecsStep
+            config={config}
+            chatbot={chatbot}
+            onSuccess={(result, prompt) => {
+              console.log('result', result);
+              setChatbot(result);
+              setConfig((prev) => ({ ...prev, prompt }));
+              setStep(steps[step].nextStep);
+            }}
+          />
+        );
+      case 'generateChatbot':
         return (
           <GenerateStep
             config={config}
+            chatbot={chatbot}
             onSuccess={(result, prompt) => {
+              console.log('result', result);
               setChatbot(result);
               setConfig((prev) => ({ ...prev, prompt }));
-              setStep(steps.generate.nextStep);
+              setStep(steps[step].nextStep);
             }}
           />
         );
@@ -217,7 +239,6 @@ export const ChatBotFlow = () => {
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text color="blue" bold>
-          Step {steps[step].number} of {steps.successGeneration.number}:{' '}
           {steps[step].label}
         </Text>
       </Box>
