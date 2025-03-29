@@ -12,7 +12,8 @@
     "start": "drizzle-kit generate && drizzle-kit migrate && bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "test": "bun test"
   },
   "peerDependencies": {
     "typescript": "5.0.0"
@@ -30,6 +31,7 @@
     "fastify": "5.2.1",
     "jose": "5.10.0",
     "toad-scheduler": "3.0.1",
-    "uuid": "11.0.5"
+    "uuid": "11.0.5",
+    "winston": "3.17.0"
   }
 }

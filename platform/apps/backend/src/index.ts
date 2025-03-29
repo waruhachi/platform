@@ -19,6 +19,24 @@ import { createApiClient } from "@neondatabase/api-client";
 import { desc, eq, getTableColumns, sql, gt } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
+import winston from 'winston';
+
+// Configure Winston logger
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    })
+  ]
+});
 
 config();
 
@@ -53,7 +71,6 @@ async function validateAuth(
   reply: FastifyReply,
 ): Promise<FastifyReply | undefined> {
   const authHeader = request.headers.authorization;
-  // console.log("authHeader", authHeader);
 
   // special-case for slack-bot->backend communication
   if (authHeader === `Bearer ${process.env.BACKEND_API_SECRET}`) {
@@ -70,17 +87,14 @@ async function validateAuth(
 
   let payload;
   try {
-    // console.log("jwks", jwks, "accessToken", accessToken);
     payload = (await jose.jwtVerify(accessToken, jwks)).payload;
-    // console.log("Authenticated user with ID:", payload.sub);
   } catch (error) {
-    console.error(error);
-    console.log("Invalid JWKS");
+    logger.error('JWT verification failed', { error });
     return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
   if (!payload.sub) {
-    console.log("sub not found in JWT");
+    logger.warn('No subject found in JWT payload');
     return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
@@ -100,19 +114,23 @@ async function validateAuth(
     );
 
     if (!response.ok) {
-      console.error(`Failed to fetch user data: ${response.statusText}`);
+      logger.error('Failed to fetch user data from Stack Auth', { 
+        statusText: response.statusText,
+        status: response.status 
+      });
       return reply.status(401).send({ error: "Failed to validate user" });
     }
 
     const responseJson = await response.json();
     if (!responseJson.primary_email.endsWith("@neon.tech")) {
-      console.log("Invalid user email");
+      logger.warn('Unauthorized email domain attempt', { 
+        email: responseJson.primary_email 
+      });
       return reply.status(403).send({ error: "Unauthorized email domain" });
     }
 
-    // console.log("Authenticated user with ID:", payload.sub);
   } catch (error) {
-    console.error("An error occurred calling the Stack Auth API:", error);
+    logger.error('Stack Auth API call failed', { error });
     return reply.status(500).send({ error: "Authentication service error" });
   }
 }
@@ -167,7 +185,11 @@ async function getS3Checksum(botId: string): Promise<string | null> {
   } catch (error: any) {
     // Don't log if it's just a NotFound error (expected for new bots)
     if (error.$metadata?.httpStatusCode !== 404) {
-      console.log(`Error getting S3 checksum for bot ${botId}:`, error);
+      logger.error('Error getting S3 checksum', { 
+        botId,
+        error,
+        httpStatusCode: error.$metadata?.httpStatusCode 
+      });
     }
     return null;
   }
@@ -226,7 +248,7 @@ async function deployBot({
   execSync(`unzip -o ${zipPath} -d ${extractDir}`);
 
   const files = execSync(`ls -la ${extractDir}`).toString();
-  console.log("Extracted files:", files);
+  logger.info('Extracted files', { files });
 
   const packageJsonPath = execSync(
     `find ${extractDir} -maxdepth 3 -not -path "*tsp_schema*" -name package.json -print -quit`,
@@ -235,14 +257,14 @@ async function deployBot({
     .trim();
   const packageJsonDirectory = path.dirname(packageJsonPath);
 
-  console.log("package.json directory:", packageJsonDirectory);
+  logger.info('Found package.json directory', { packageJsonDirectory });
 
   // Create a Neon database
   const { data } = await neonClient.createProject({
     project: {},
   });
   const connectionString = data.connection_uris[0].connection_uri;
-  console.log({ data, connectionString });
+  logger.info('Created Neon database', { projectId: data.project.id });
 
   // Write the `Dockerfile` to the packageJsonDirectory
   fs.writeFileSync(
@@ -318,18 +340,26 @@ CMD [ "bun", "run", "start" ]
       },
     );
   } catch (error) {
-    console.error("Error destroying fly app:", error);
+    logger.error("Error destroying fly app", { 
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : String(error),
+      flyAppName 
+    });
   }
 
-  console.log("fly launch is starting");
+  logger.info("Starting fly launch", { flyAppName });
   execSync(
     `${flyBinary} launch -y ${envVarsString} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
-  console.log("fly launch is over");
-  console.log(
-    `Updating chatbots table with flyAppId ${flyAppName} for bot ${botId}`,
-  );
+  logger.info("Fly launch completed", { flyAppName });
+  logger.info("Updating chatbots table", { 
+    flyAppName,
+    botId
+  });
 
   await db
     .update(chatbots)
@@ -346,7 +376,7 @@ CMD [ "bun", "run", "start" ]
   );
   fs.writeFileSync(flyTomlPath, updatedContent);
 
-  console.log("deploying fly app");
+  logger.info("Starting fly deployment", { flyAppName });
   execSync(
     `${flyBinary} deploy --yes --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
     {
@@ -354,7 +384,7 @@ CMD [ "bun", "run", "start" ]
       stdio: "inherit",
     },
   );
-  console.log("fly deploy is over");
+  logger.info("Fly deployment completed", { flyAppName });
 
   await db
     .update(chatbots)
@@ -396,25 +426,27 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
         continue;
       }
 
-      console.log(
-        `Bot ${bot.id} has new checksum ${currentChecksum}, previous was ${bot.s3Checksum}`,
-      );
+      logger.info('Bot has new checksum', {
+        botId: bot.id,
+        currentChecksum,
+        previousChecksum: bot.s3Checksum
+      });
 
       const { readUrl } = await getReadPresignedUrls(bot.id);
 
       // Verify we can fetch the source code
       const response = await fetch(readUrl);
       if (!response.ok) {
-        console.log(
-          `Failed to fetch source code for bot ${bot.id}: ${response.statusText}`,
-        );
+        logger.error('Failed to fetch source code', {
+          botId: bot.id,
+          statusText: response.statusText,
+          status: response.status
+        });
         continue;
       }
 
       if (bot.runMode === "telegram" && !bot.telegramBotToken) {
-        console.log(
-          `Bot ${bot.id} is missing a Telegram token, skipping deployment`,
-        );
+        logger.warn('Bot missing Telegram token', { botId: bot.id });
         continue;
       }
 
@@ -429,7 +461,14 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
         })
         .where(eq(chatbots.id, bot.id));
     } catch (error) {
-      console.error(`Error processing bot ${bot.id}:`, error);
+      logger.error('Error processing bot', { 
+        botId: bot.id, 
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : String(error)
+      });
     }
   }
 });
@@ -495,9 +534,7 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
 });
 
 app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
-  // console.log("/chatbots/:id request", request.params);
   const authCheck = await validateAuth(request, reply);
-  // console.log("authCheck", authCheck);
   if (authCheck) {
     return authCheck;
   }
@@ -568,20 +605,44 @@ app.post(
         clientSource,
       } = request.body;
 
-      console.log("request.body", request.body);
+      logger.info('Generate request received', { 
+        userId,
+        runMode,
+        useStaging,
+        useMockedAgent,
+        clientSource,
+        hasSourceCodeFile: !!sourceCodeFile,
+        promptLength: prompt.length
+      });
 
       let botId = request.body.botId;
       if (!botId) {
         botId = uuidv4();
+        logger.info('Generated new bot ID', { botId });
+      } else {
+        logger.info('Using existing bot ID', { botId });
       }
 
       const { writeUrl, readUrl } =
         await createS3DirectoryWithPresignedUrls(botId);
+      logger.info('Created S3 presigned URLs', { 
+        botId,
+        writeUrlExpiry: new Date(Date.now() + 3600 * 1000).toISOString()
+      });
 
       const existingBot = await db
         .select()
         .from(chatbots)
         .where(eq(chatbots.id, botId));
+      
+      if (existingBot && existingBot[0]) {
+        logger.info('Found existing bot', { 
+          botId,
+          receivedSuccess: existingBot[0].receivedSuccess,
+          recompileInProgress: existingBot[0].recompileInProgress,
+          currentRunMode: existingBot[0].runMode
+        });
+      }
 
       await db
         .insert(chatbots)
@@ -601,6 +662,11 @@ app.post(
           },
         })
         .returning();
+      logger.info('Upserted bot in database', { 
+        botId,
+        runMode,
+        userId
+      });
 
       await db.insert(chatbotPrompts).values({
         id: uuidv4(),
@@ -608,6 +674,7 @@ app.post(
         chatbotId: botId,
         kind: "user",
       });
+      logger.info('Inserted user prompt', { botId });
 
       const allPrompts = await db
         .select({
@@ -618,21 +685,33 @@ app.post(
         .from(chatbotPrompts)
         .where(eq(chatbotPrompts.chatbotId, botId));
 
-      console.log("allPrompts", allPrompts);
+      logger.info('Retrieved all prompts', { 
+        botId,
+        promptCount: allPrompts.length,
+        promptTypes: allPrompts.map(p => p.kind)
+      });
+
       if (allPrompts.length < 1) {
+        logger.error('No prompts found after insertion', { botId });
         throw new Error("Failed to insert prompt into chatbot_prompts");
       }
 
       try {
         // If sourceCodeFile is provided, upload it directly to S3 and skip the /prepare/compile endpoints
         if (sourceCodeFile) {
-          console.log(
-            `Uploading source code file directly to S3 for bot ${botId}`,
-          );
+          logger.info('Starting source code file upload', { 
+            botId,
+            fileName: sourceCodeFile.name,
+            contentSizeBytes: sourceCodeFile.content.length
+          });
 
           try {
             // Decode the base64 content
             const fileBuffer = Buffer.from(sourceCodeFile.content, "base64");
+            logger.debug('Decoded base64 content', {
+              botId,
+              bufferSizeBytes: fileBuffer.length
+            });
 
             // Upload the file to S3 using the writeUrl
             const response = await fetch(writeUrl, {
@@ -644,28 +723,34 @@ app.post(
             });
 
             if (!response.ok) {
+              logger.error('S3 upload failed', {
+                botId,
+                status: response.status,
+                statusText: response.statusText
+              });
               throw new Error(
                 `Failed to upload file to S3: ${response.statusText}`,
               );
             }
 
-            console.log(
-              `Successfully uploaded source code file to S3 for bot ${botId}`,
-            );
+            logger.info('Successfully uploaded source code file', { 
+              botId,
+              status: response.status
+            });
+
+            return reply.send({
+              newBot: { id: botId },
+              message: `Source code uploaded successfully`,
+            });
           } catch (uploadError) {
-            console.error(
-              "Error uploading source code file to S3:",
-              uploadError,
-            );
+            logger.error('Error uploading source code file', { 
+              botId,
+              error: uploadError 
+            });
             throw new Error(
               `Failed to upload source code file: ${uploadError}`,
             );
           }
-
-          return reply.send({
-            newBot: { id: botId },
-            message: `Source code uploaded successfully`,
-          });
         } else {
           // If no sourceCodeFile is provided, call the /compile endpoint as before
           let AGENT_API_URL = useMockedAgent
@@ -674,8 +759,16 @@ app.post(
               ? "http://18.237.53.81:8080"
               : "http://54.245.178.56:8080";
 
+          logger.info('Using agent API', {
+            botId,
+            url: AGENT_API_URL,
+            useMockedAgent,
+            useStaging
+          });
+
           if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
             if (existingBot[0].recompileInProgress) {
+              logger.info('Skipping recompile - already in progress', { botId });
               return reply.send({
                 newBot: {
                   id: botId,
@@ -684,6 +777,7 @@ app.post(
               });
             }
 
+            logger.info('Starting recompile for existing bot', { botId });
             const compileResponse = await fetch(`${AGENT_API_URL}/recompile`, {
               method: "POST",
               headers: {
@@ -698,13 +792,12 @@ app.post(
                 typespecSchema: existingBot[0].typespecSchema,
               }),
             });
-            console.log("compileResponse", compileResponse);
 
-            // write compileResponse to a file
-            // fs.writeFileSync(
-            // "compileResponse.json",
-            // JSON.stringify(compileResponse, null, 2),
-            // );
+            logger.info('Recompile response received', {
+              botId,
+              status: compileResponse.status,
+              ok: compileResponse.ok
+            });
 
             if (!compileResponse.ok) {
               throw new Error(
@@ -721,6 +814,7 @@ app.post(
               message: `Codegen started: ${compileResponseJson.message}`,
             });
           } else {
+            logger.info('Starting prepare for new bot', { botId });
             const prepareResponse = await fetch(`${AGENT_API_URL}/prepare`, {
               method: "POST",
               headers: {
@@ -734,6 +828,11 @@ app.post(
             });
 
             if (!prepareResponse.ok) {
+              logger.error('Prepare request failed', {
+                botId,
+                status: prepareResponse.status,
+                statusText: prepareResponse.statusText
+              });
               throw new Error(
                 `HTTP error in /prepare, status: ${prepareResponse.status}`,
               );
@@ -748,13 +847,12 @@ app.post(
               };
             } = await prepareResponse.json();
 
-            console.log("prepareResponseJson", prepareResponseJson);
-
-            // write prepareResponseJson to a file
-            // fs.writeFileSync(
-            // "prepareResponseJson.json",
-            // JSON.stringify(prepareResponseJson, null, 2),
-            // );
+            logger.info('Prepare response received', {
+              botId,
+              status: prepareResponseJson.status,
+              hasReasoning: !!prepareResponseJson.metadata.reasoning,
+              hasTypespec: !!prepareResponseJson.metadata.typespec
+            });
 
             await db
               .update(chatbots)
@@ -762,15 +860,16 @@ app.post(
                 typespecSchema: prepareResponseJson.metadata.typespec,
               })
               .where(eq(chatbots.id, botId));
+            logger.info('Updated bot typespec schema', { botId });
 
             if (prepareResponseJson.status === "success") {
-              // From now on, we'll call /recompile instead of /prepare
               await db
                 .update(chatbots)
                 .set({
                   receivedSuccess: true,
                 })
                 .where(eq(chatbots.id, botId));
+              logger.info('Marked bot as received success', { botId });
             }
 
             await db.insert(chatbotPrompts).values({
@@ -779,19 +878,33 @@ app.post(
               chatbotId: botId,
               kind: "agent",
             });
+            logger.info('Inserted agent reasoning prompt', { botId });
 
             // Deploy an under-construction page to the fly app
             const underConstructionImage =
               "registry.fly.io/under-construction:deployment-01JQ4JD8TKSW37KP9MR44B3DNB";
             const flyAppName = `app-${botId}`;
 
+            logger.info('Deploying under-construction page', {
+              botId,
+              flyAppName,
+              image: underConstructionImage
+            });
+
             try {
               execSync(
                 `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
                 { stdio: "inherit" },
               );
+              logger.info('Successfully deployed under-construction page', {
+                botId,
+                flyAppName
+              });
             } catch (error) {
-              console.error("Error deploying under-construction page:", error);
+              logger.error('Error deploying under-construction page', {
+                botId,
+                error
+              });
               return reply.send({
                 newBot: { id: botId },
                 message: `Failed to deploy under-construction page: ${error}`,
@@ -809,13 +922,20 @@ app.post(
           }
         }
       } catch (error) {
-        console.error("Error compiling bot:", error);
+        logger.error('Error compiling bot', { 
+          botId, 
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error)
+        });
         return reply
           .status(400)
           .send({ error: `Failed to compile bot: ${error}` });
       }
     } catch (error) {
-      console.error("Error generating bot:", error);
+      logger.error('Error generating bot', { 
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
       return reply
         .status(400)
         .send({ error: `Failed to generate bot: ${error}` });
@@ -826,9 +946,11 @@ app.post(
 const start = async () => {
   try {
     await app.listen({ host: "0.0.0.0", port: 4444 });
-    console.log("Server running at http://localhost:4444");
+    logger.info('Server started', { 
+      url: 'http://localhost:4444'
+    });
   } catch (err) {
-    console.error(err);
+    logger.error('Server failed to start', { error: err });
     process.exit(1);
   }
 };
