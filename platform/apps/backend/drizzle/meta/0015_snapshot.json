@@ -46,12 +46,8 @@
           "name": "chatbot_prompts_chatbotId_chatbots_id_fk",
           "tableFrom": "chatbot_prompts",
           "tableTo": "chatbots",
-          "columnsFrom": [
-            "chatbotId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chatbotId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

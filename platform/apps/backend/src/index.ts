@@ -16,16 +16,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
-import {
-  desc,
-  eq,
-  getTableColumns,
-  sql,
-  isNull,
-  and,
-  gt,
-  ne,
-} from "drizzle-orm";
+import { desc, eq, getTableColumns, sql, gt } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 
@@ -556,6 +547,7 @@ app.post(
         telegramBotToken: string;
         userId: string;
         useStaging: boolean;
+        useMockedAgent: boolean;
         runMode: string;
         sourceCodeFile?: { name: string; content: string };
         botId?: string;
@@ -570,6 +562,7 @@ app.post(
         telegramBotToken,
         userId,
         useStaging,
+        useMockedAgent,
         runMode,
         sourceCodeFile,
         clientSource,
@@ -675,9 +668,11 @@ app.post(
           });
         } else {
           // If no sourceCodeFile is provided, call the /compile endpoint as before
-          let AGENT_API_URL = useStaging
-            ? "http://18.237.53.81:8080"
-            : "http://54.245.178.56:8080";
+          let AGENT_API_URL = useMockedAgent
+            ? "http://0.0.0.0:5575"
+            : useStaging
+              ? "http://18.237.53.81:8080"
+              : "http://54.245.178.56:8080";
 
           if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
             if (existingBot[0].recompileInProgress) {
@@ -704,6 +699,12 @@ app.post(
               }),
             });
             console.log("compileResponse", compileResponse);
+
+            // write compileResponse to a file
+            // fs.writeFileSync(
+            // "compileResponse.json",
+            // JSON.stringify(compileResponse, null, 2),
+            // );
 
             if (!compileResponse.ok) {
               throw new Error(
@@ -748,6 +749,12 @@ app.post(
             } = await prepareResponse.json();
 
             console.log("prepareResponseJson", prepareResponseJson);
+
+            // write prepareResponseJson to a file
+            // fs.writeFileSync(
+            // "prepareResponseJson.json",
+            // JSON.stringify(prepareResponseJson, null, 2),
+            // );
 
             await db
               .update(chatbots)
