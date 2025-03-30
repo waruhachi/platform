@@ -27,8 +27,9 @@ jobs:
         working-directory: platform
         env:
           PLATFORM_API_URL: ${{ secrets.PLATFORM_API_URL }}
+          NEXT_PUBLIC_STACK_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_STACK_PROJECT_ID }}
+          STACK_SECRET_SERVER_KEY: ${{ secrets.STACK_SECRET_SERVER_KEY }}
           NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${{ secrets.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY }}
-          STACK_SECRET_SERVER_KEY: "test"
         run: bun run lint
 
       - name: Backend - Install Dependencies
