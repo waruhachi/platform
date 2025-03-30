@@ -1,11 +1,10 @@
 "use server";
 
 import { Chatbot, Paginated, ReadUrl } from "@repo/core/types/api";
-import { env } from "@/env.mjs";
 import JSZip from "jszip";
 import { stackServerApp } from "@repo/auth";
 
-const PLATFORM_API_URL = env.PLATFORM_API_URL;
+const PLATFORM_API_URL = process.env.PLATFORM_API_URL;
 
 export async function getAllChatbots({
   page = 1,
