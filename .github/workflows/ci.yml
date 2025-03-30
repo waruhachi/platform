@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Lint
         working-directory: platform
-        run: echo "Debug: $STACK_SECRET_SERVER_KEY is present" && bun run lint
+        run: echo \"Debug: $STACK_SECRET_SERVER_KEY is present" && bun run lint
 
       - name: Backend - Install Dependencies
         working-directory: platform/apps/backend
