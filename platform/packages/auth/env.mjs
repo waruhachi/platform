@@ -20,6 +20,5 @@ export const env = createEnv({
   server: {
     NEXT_PUBLIC_STACK_PROJECT_ID: required,
     NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: required,
-    STACK_SECRET_SERVER_KEY: required,
   },
 });
