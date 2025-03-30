@@ -19,6 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug Environment Variables
+        run: |
+          if [ -n "$STACK_SECRET_SERVER_KEY" ]; then
+            echo "STACK_SECRET_SERVER_KEY is set"
+          else
+            echo "STACK_SECRET_SERVER_KEY is NOT set"
+          fi
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
