@@ -25,6 +25,11 @@ jobs:
 
       - name: Run Lint
         working-directory: platform
+        env:
+          PLATFORM_API_URL: ${{ secrets.PLATFORM_API_URL }}
+          NEXT_PUBLIC_STACK_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_STACK_PROJECT_ID }}
+          NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${{ secrets.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY }}
+          STACK_SECRET_SERVER_KEY: ${{ secrets.STACK_SECRET_SERVER_KEY }}
         run: bun run lint
 
       - name: Backend - Install Dependencies
