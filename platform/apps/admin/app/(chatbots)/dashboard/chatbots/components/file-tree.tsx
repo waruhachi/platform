@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, ChevronDown, File, Folder } from "lucide-react";
+import { ChevronRight, File, Folder } from "lucide-react";
 import { cn } from "@repo/design/lib/utils";
 
 interface FileEntry {

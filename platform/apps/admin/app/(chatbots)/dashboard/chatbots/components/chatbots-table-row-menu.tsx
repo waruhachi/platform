@@ -2,9 +2,7 @@
 
 import { Row } from "@tanstack/react-table";
 import {
-  Pencil,
   MoreHorizontal,
-  Trash2,
   ExternalLink,
   FileSearch2,
 } from "lucide-react";

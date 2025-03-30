@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import { Separator } from "@repo/design/shadcn/separator";
 import ChatbotsTable from "./components/chatbots-table";
 import { getAllChatbots } from "./actions";
 
@@ -20,7 +19,7 @@ export default async function ChatbotsPage() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Chatbots</h2>
           <p className="text-muted-foreground">
-            Manage your organization's chatbots
+            Manage your organization&apos;s chatbots
           </p>
         </div>
         <div className="flex items-center space-x-2"></div>

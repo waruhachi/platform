@@ -104,7 +104,6 @@ function buildFileTree(files: { [key: string]: string }): FileEntry[] {
 
     // Process each part of the path
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i];
       const isFile = i === parts.length - 1;
       const currentPath = parts.slice(0, i + 1).join("/");
 

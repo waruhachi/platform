@@ -1,7 +1,6 @@
 import { geistMono, geistSans } from "@repo/design/base/fonts";
 import "@repo/design/globals.css";
 import type { Metadata } from "next";
-import Providers from "./providers.client";
 import "./global.css";
 import ProvidersServer from "./providers.server";
 import ProvidersClient from "./providers.client";
