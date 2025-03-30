@@ -11,6 +11,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PLATFORM_API_URL: ${{ secrets.PLATFORM_API_URL }}
+      NEXT_PUBLIC_STACK_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_STACK_PROJECT_ID }}
+      STACK_SECRET_SERVER_KEY: ${{ secrets.STACK_SECRET_SERVER_KEY }}
+      NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${{ secrets.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,11 +30,6 @@ jobs:
 
       - name: Run Lint
         working-directory: platform
-        env:
-          PLATFORM_API_URL: ${{ secrets.PLATFORM_API_URL }}
-          NEXT_PUBLIC_STACK_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_STACK_PROJECT_ID }}
-          STACK_SECRET_SERVER_KEY: ${{ secrets.STACK_SECRET_SERVER_KEY }}
-          NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY: ${{ secrets.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY }}
         run: bun run lint
 
       - name: Backend - Install Dependencies
