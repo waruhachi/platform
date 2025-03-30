@@ -17,7 +17,6 @@ const optional = z
 
 export const env = createEnv({
   server: {
-    PLATFORM_API_URL: z.string().url(),
   },
   client: {},
   shared: {},
