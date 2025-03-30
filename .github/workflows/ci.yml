@@ -37,8 +37,10 @@ jobs:
         run: bun install
 
       - name: Run Lint
+        env:
+          STACK_SECRET_SERVER_KEY: ${{ secrets.STACK_SECRET_SERVER_KEY }}
         working-directory: platform
-        run: "echo 'Debug: $STACK_SECRET_SERVER_KEY is present' && bun run lint"
+        run: bun run lint
 
       - name: Backend - Install Dependencies
         working-directory: platform/apps/backend
