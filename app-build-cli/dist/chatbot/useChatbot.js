@@ -7,10 +7,7 @@ const queryKeys = {
 export const useChatbot = (chatbotId, options) => {
     return useQuery({
         queryKey: queryKeys.chatbot(chatbotId ?? ''),
-        queryFn: () => getChatbot(chatbotId).then((res) => {
-            console.log({ chatbotPoll: res });
-            return res;
-        }),
+        queryFn: () => getChatbot(chatbotId),
         enabled: !!chatbotId,
         ...options,
     });

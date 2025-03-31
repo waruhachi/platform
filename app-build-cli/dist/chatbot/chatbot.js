@@ -67,13 +67,13 @@ export const getChatbot = async (chatbotId) => {
     try {
         const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${chatbotId}`, {
             headers: {
-                Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
+                // TODO: remove this
+                Authorization: `Bearer bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1`,
             },
         });
         const botStatusJson = (await botStatus.json());
-        console.log({ botStatusJson });
         return {
-            isDeployed: !!botStatusJson.flyAppId,
+            isDeployed: botStatusJson.deployStatus === 'deployed',
             ...botStatusJson,
         };
     }

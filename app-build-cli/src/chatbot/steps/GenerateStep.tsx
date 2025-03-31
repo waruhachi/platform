@@ -70,8 +70,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
       return;
     }
 
-    console.log({ isDeployed: chatbot.isDeployed, generateChatbotData });
-
     // Handle successful deployment
     if (chatbot?.isDeployed && generateChatbotData) {
       console.log(

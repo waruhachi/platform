@@ -17,14 +17,7 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
     mutateAsync: generateChatbot,
     isPending: isGeneratingChatbot,
     error: generateChatbotError,
-    data: generateChatbotData,
   } = useGenerateChatbotSpecs();
-
-  console.log({
-    error: generateChatbotError,
-    data: generateChatbotData,
-    pending: isGeneratingChatbot,
-  });
 
   return (
     <Box flexDirection="column">

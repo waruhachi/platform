@@ -52,7 +52,6 @@ export const GenerateStep = ({ onSuccess }) => {
         if (isWaitingForSpecsApproval || !chatbot || !chatbotId) {
             return;
         }
-        console.log({ isDeployed: chatbot.isDeployed, generateChatbotData });
         // Handle successful deployment
         if (chatbot?.isDeployed && generateChatbotData) {
             console.log('LET"S goooooooo - - - - - - -- - - - - - - - - -- - - dasdasdas');
