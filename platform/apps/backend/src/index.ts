@@ -921,7 +921,7 @@ app.post(
             } catch (error) {
               logger.error("Error deploying under-construction page", {
                 botId,
-                error,
+                error: error instanceof Error ? error.message : String(error),
               });
               return reply.send({
                 newBot: { id: botId },
