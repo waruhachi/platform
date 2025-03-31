@@ -24,7 +24,12 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install Dependencies
+      - name: Install Dependencies for Platform
+        working-directory: platform
+        run: bun install
+
+      - name: Install Dependencies for Mocked Agent
+        working-directory: mocked-agent
         run: bun install
 
       - name: Run Lint
