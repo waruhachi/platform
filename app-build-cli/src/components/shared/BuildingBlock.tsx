@@ -5,7 +5,7 @@ import { MultiSelect, type MultiSelectProps } from './MultiSelect.js';
 
 type BuildingBlockProps =
   | ({ type: 'free-text' } & FreeTextProps)
-  | ({ type: 'select' } & SelectProps)
+  | ({ type: 'select' } & SelectProps<string>)
   | ({ type: 'boolean' } & ConfirmPromptProps)
   | ({ type: 'multi-select' } & MultiSelectProps);
 

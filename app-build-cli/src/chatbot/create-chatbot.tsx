@@ -1,227 +1,111 @@
-import { useState } from 'react';
 import { Box, Text } from 'ink';
-import { FreeText } from '../components/shared/FreeText.js';
-import { Select } from '../components/shared/Select.js';
-import { type ChatbotGenerationResult } from './deploy-chatbot.js';
-import { GenerateStep } from './generate-step.js';
-
-type TelegramBotConfig = {
-  telegramBotToken: string;
-  useStaging: boolean;
-  runMode: 'telegram' | 'http-server';
-  prompt: string;
-};
-
-const steps = {
-  token: {
-    number: 1,
-    label: 'Bot Configuration',
-    question: 'Enter your Telegram Bot Token:',
-    placeholder: 'e.g., 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz',
-    nextStep: 'environment' as const,
-  },
-  environment: {
-    number: 2,
-    label: 'Environment Selection',
-    question: 'Choose where your chatbot will run:',
-    options: [
-      { label: '🚀 Production - For live deployment', value: 'true' },
-      { label: '🔧 Staging - For testing', value: 'false' },
-    ],
-    nextStep: 'runMode' as const,
-  },
-  runMode: {
-    number: 3,
-    label: 'Run Mode Selection',
-    question: 'Select the run mode:',
-    options: [
-      { label: 'Telegram Bot', value: 'telegram' },
-      { label: 'HTTP Server', value: 'http-server' },
-    ],
-    nextStep: 'generate' as const,
-  },
-  generate: {
-    number: 4,
-    label: 'Generation',
-    question: 'Generating your chatbot...',
-    nextStep: 'successGeneration' as const,
-  },
-  successGeneration: {
-    number: 5,
-    label: 'Success',
-    question: 'Chatbot created successfully!',
-    nextStep: 'success' as const,
-  },
-};
-
-type Step = keyof typeof steps;
+import { EnvironmentStep } from './steps/EnvironmentStep.js';
+import { GenerateSpecsStep } from './steps/GenerateSpecsStep.js';
+import { GenerateStep } from './steps/GenerateStep.js';
+import { SuccessStep } from './steps/SuccessStep.js';
+import { TokenStep } from './steps/TokenStep.js';
+import { steps, type StepType } from './steps/steps.js';
+import { Banner } from '../components/ui/Banner.js';
+import { WizardHistory } from '../components/ui/WizardHistory.js';
+import { ShortcutHints } from '../components/ui/ShortcutHints.js';
+import { useCreateChatbotWizardStore } from './store.js';
+import { RunModeStep } from './steps/RunModeStep.js';
+import type { ChatbotGenerationResult } from './chatbot.js';
 
 export const ChatBotFlow = () => {
-  const [step, setStep] = useState<Step>('token');
-  const [config, setConfig] = useState<TelegramBotConfig>({
-    telegramBotToken: '',
-    useStaging: false,
-    runMode: 'telegram',
-    prompt: '',
-  });
+  const {
+    step,
+    config,
+    history,
+    canGoBack,
+    setStep,
+    setConfig,
+    addToHistory,
+    currentChatbotId,
+    addMessageToChatbotHistory,
+  } = useCreateChatbotWizardStore();
 
-  const [chatbot, setChatbot] = useState<ChatbotGenerationResult | null>(null);
+  const handleRunModeSubmit = (runMode: string) => {
+    const newConfig = {
+      ...config,
+      runMode: runMode as 'telegram' | 'http-server',
+    };
+    setConfig(newConfig);
+    addToHistory(
+      steps.runMode.question,
+      steps.runMode.options.find((opt) => opt.value === runMode)?.label ||
+        runMode
+    );
+    setStep(steps.runMode.nextStep(newConfig));
+  };
+
+  const handleTokenSubmit = (token: string) => {
+    setConfig({ telegramBotToken: token });
+    addToHistory(
+      steps.token.question,
+      token.slice(0, 8) + '...' // Show only part of the token for security
+    );
+    setStep(steps.token.nextStep);
+  };
+
+  const handleEnvironmentSubmit = (environment: string) => {
+    setConfig({
+      useStaging: environment === 'staging',
+    });
+    addToHistory(
+      steps.environment.question,
+      steps.environment.options.find((opt) => opt.value === environment)
+        ?.label || environment
+    );
+    setStep(steps.environment.nextStep);
+  };
+
+  const handleGenerateBotSpecsSuccess = (
+    botSpecs: ChatbotGenerationResult,
+    prompt: string
+  ) => {
+    setConfig({ prompt });
+    addToHistory('What kind of chatbot would you like to create?', prompt);
+    addMessageToChatbotHistory('specs', botSpecs.message);
+    setStep(steps[step].nextStep as StepType);
+  };
+
+  const handleGenerateBotSuccess = (bot: ChatbotGenerationResult) => {
+    addMessageToChatbotHistory('generation', bot.message);
+    setStep(steps[step].nextStep as StepType);
+  };
 
   const stepContent = () => {
     switch (step) {
       case 'token':
-        return (
-          <FreeText
-            question={steps.token.question}
-            placeholder={steps.token.placeholder}
-            onSubmit={(telegramBotToken) => {
-              setConfig((prev) => ({ ...prev, telegramBotToken }));
-              setStep(steps.token.nextStep);
-            }}
-          />
-        );
+        return <TokenStep onSubmit={handleTokenSubmit} />;
       case 'environment':
-        return (
-          <Select
-            question={steps.environment.question}
-            options={steps.environment.options}
-            onSubmit={(useStaging) => {
-              setConfig((prev) => ({
-                ...prev,
-                useStaging: useStaging === 'true',
-              }));
-              setStep(steps.environment.nextStep);
-            }}
-          />
-        );
+        return <EnvironmentStep onSubmit={handleEnvironmentSubmit} />;
       case 'runMode':
-        return (
-          <Select
-            question={steps.runMode.question}
-            options={steps.runMode.options}
-            onSubmit={(runMode) => {
-              setConfig((prev) => ({
-                ...prev,
-                runMode: runMode as 'telegram' | 'http-server',
-              }));
-              setStep(steps.runMode.nextStep);
-            }}
-          />
-        );
-      case 'generate':
-        return (
-          <GenerateStep
-            config={config}
-            onSuccess={(result, prompt) => {
-              setChatbot(result);
-              setConfig((prev) => ({ ...prev, prompt }));
-              setStep(steps.generate.nextStep);
-            }}
-          />
-        );
+        return <RunModeStep onSubmit={handleRunModeSubmit} />;
+      case 'generateChatbotSpecs':
+        return <GenerateSpecsStep onSuccess={handleGenerateBotSpecsSuccess} />;
+      case 'generateChatbot':
+        return <GenerateStep onSuccess={handleGenerateBotSuccess} />;
       case 'successGeneration':
-        // Success State
-        if (chatbot?.success) {
-          return (
-            <Box flexDirection="column" padding={1}>
-              <Box
-                flexDirection="column"
-                borderStyle="round"
-                borderColor="green"
-                padding={1}
-                marginBottom={1}
-              >
-                <Box>
-                  <Text backgroundColor="green" color="black" bold>
-                    {' '}
-                    SUCCESS{' '}
-                  </Text>
-                  <Text color="green" bold>
-                    {' '}
-                    Chatbot created successfully!
-                  </Text>
-                </Box>
-                <Box marginLeft={2} marginTop={1}>
-                  <Text dimColor>Chatbot ID: </Text>
-                  <Text bold>{chatbot.chatbotId}</Text>
-                </Box>
-                {chatbot.message && (
-                  <Box marginLeft={2}>
-                    <Text dimColor>Message: </Text>
-                    <Text>{chatbot.message}</Text>
-                  </Box>
-                )}
-              </Box>
-
-              <Box
-                flexDirection="column"
-                borderStyle="round"
-                borderColor="blue"
-                padding={1}
-              >
-                <Text bold underline>
-                  Configuration Summary
-                </Text>
-                <Box marginTop={1}>
-                  <Text dimColor>Bot Token: </Text>
-                  <Text color="green">{config.telegramBotToken}</Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Environment: </Text>
-                  <Text color="green">
-                    {config.useStaging ? 'Staging' : 'Production'}
-                  </Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Run Mode: </Text>
-                  <Text color="green">{config.runMode}</Text>
-                </Box>
-                <Box marginTop={1}>
-                  <Text dimColor>Prompt: </Text>
-                  <Text color="green">{config.prompt}</Text>
-                </Box>
-              </Box>
-
-              <Box marginTop={2} flexDirection="column">
-                <Text bold>Next Steps:</Text>
-                <Text>
-                  1. Save your Chatbot ID:{' '}
-                  <Text color="yellow" bold>
-                    {chatbot.chatbotId}
-                  </Text>
-                </Text>
-                <Text>
-                  2.{' '}
-                  {config.runMode === 'telegram'
-                    ? 'Open Telegram and start chatting with your bot!'
-                    : 'Your HTTP server is ready to accept requests.'}
-                </Text>
-                <Box marginTop={1}>
-                  <Text dimColor italic>
-                    Press Ctrl+C to exit
-                  </Text>
-                </Box>
-              </Box>
-            </Box>
-          );
+        if (!currentChatbotId) {
+          return <Text>No chatbot ID found</Text>;
         }
-
-        // This should never happen as we stay in step 3 on error
-        return null;
+        return <SuccessStep chatbotId={currentChatbotId} />;
       default:
         return null;
     }
   };
 
+  const showShortcutHints =
+    history.length > 0 && step !== 'successGeneration' && canGoBack;
+
   return (
     <Box flexDirection="column">
-      <Box marginBottom={1}>
-        <Text color="blue" bold>
-          Step {steps[step].number} of {steps.successGeneration.number}:{' '}
-          {steps[step].label}
-        </Text>
-      </Box>
+      <Banner />
+      <WizardHistory entries={history} />
       {stepContent()}
+      {showShortcutHints && <ShortcutHints />}
     </Box>
   );
 };

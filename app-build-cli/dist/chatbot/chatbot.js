@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import fetch from 'node-fetch';
+import os from 'os';
 // Load environment variables from .env file
 config();
 let BACKEND_API_HOST;
@@ -10,24 +11,23 @@ else {
     BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
     // BACKEND_API_HOST = 'http://localhost:4444';
 }
+function generateMachineId() {
+    const hostname = os.hostname();
+    const username = os.userInfo().username;
+    const machineInfo = `${hostname}-${username}`;
+    return machineInfo;
+}
 export const generateChatbot = async (params) => {
     try {
-        console.log('calling generate endpoint');
         const requestBody = {
             prompt: params.prompt,
             telegramBotToken: params.runMode === 'telegram' ? params.telegramBotToken : undefined,
-            userId: params.userId,
+            userId: generateMachineId(),
             useStaging: params.useStaging,
             runMode: params.runMode,
             botId: params.botId,
             clientSource: 'cli',
         };
-        // If a source code file ID is provided, add it to the request
-        if (params.sourceCodeFileId) {
-            requestBody.sourceCodeFile = {
-                id: params.sourceCodeFileId,
-            };
-        }
         const response = await fetch(`${BACKEND_API_HOST}/generate`, {
             method: 'POST',
             headers: {
@@ -38,74 +38,48 @@ export const generateChatbot = async (params) => {
         if (response.ok) {
             const generateResult = (await response.json());
             return {
-                success: true,
                 chatbotId: generateResult.newBot.id,
                 message: generateResult.message,
+                readUrl: '',
             };
         }
         else {
-            console.error('generate1 error', response);
             const errorMessage = await response.text();
-            return {
-                success: false,
-                error: errorMessage,
-            };
+            throw new Error(errorMessage);
         }
     }
     catch (error) {
         console.error('generate endpoint error', error);
+        let errorMessage = 'Unknown error occurred';
         if (error instanceof DOMException && error.name === 'TimeoutError') {
-            return {
-                success: false,
-                error: 'Request timed out after 10 minutes',
-            };
+            errorMessage = 'Request timed out after 10 minutes';
         }
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
+        else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        throw new Error(errorMessage);
     }
 };
-export const checkBotDeploymentStatus = async (chatbotId) => {
+export const generateChatbotSpec = async (params) => {
+    return generateChatbot({ ...params, botId: undefined });
+};
+export const getChatbot = async (chatbotId) => {
     try {
         const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${chatbotId}`, {
             headers: {
-                Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
+                // TODO: remove this
+                Authorization: `Bearer bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1`,
             },
         });
         const botStatusJson = (await botStatus.json());
         return {
-            isDeployed: !!botStatusJson.flyAppId,
-            readUrl: botStatusJson.readUrl,
-            flyAppId: botStatusJson.flyAppId,
+            isDeployed: botStatusJson.deployStatus === 'deployed',
+            ...botStatusJson,
         };
     }
     catch (error) {
         console.error('Error checking bot deployment status:', error);
-        return {
-            isDeployed: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
+        throw error;
     }
 };
-/*
-export const updateBotDeploymentStatus = async (
-  threadTs: string,
-  deployed: boolean
-) => {
-  try {
-    await db
-      .update(threads)
-      .set({
-        deployed,
-      })
-      .where(eq(threads.threadTs, threadTs));
-
-    return true;
-  } catch (error) {
-    console.error('Error updating bot deployment status:', error);
-    return false;
-  }
-};
-*/
-//# sourceMappingURL=deploy-chatbot.js.map
+//# sourceMappingURL=chatbot.js.map

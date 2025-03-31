@@ -2,13 +2,17 @@ import { Box, Text } from 'ink';
 import { type SelectItem } from './types.js';
 import { Select as InkSelect } from '@inkjs/ui';
 
-export type SelectProps = {
+export type SelectProps<T extends string> = {
   question: string;
-  onSubmit: (value: string) => void;
-  options: SelectItem<string>[];
+  onSubmit: (value: T) => void;
+  options: SelectItem<T>[];
 };
 
-export const Select = ({ question, onSubmit, options }: SelectProps) => {
+export const Select = <T extends string>({
+  question,
+  onSubmit,
+  options,
+}: SelectProps<T>) => {
   return (
     <Box
       flexDirection="column"
@@ -24,7 +28,7 @@ export const Select = ({ question, onSubmit, options }: SelectProps) => {
         <InkSelect
           options={options}
           onChange={(value) => {
-            onSubmit(value);
+            onSubmit(value as T);
           }}
         />
       </Box>

@@ -1,0 +1,20 @@
+diff --git a/build/modern/queryObserver.js b/build/modern/queryObserver.js
+index f009c12bba146a27ffa9d7244f4f0bfc792aa0c9..64f585568e74c9396231eb40e2093a259b92ce71 100644
+--- a/build/modern/queryObserver.js
++++ b/build/modern/queryObserver.js
+@@ -5,7 +5,6 @@ import { fetchState } from "./query.js";
+ import { Subscribable } from "./subscribable.js";
+ import { pendingThenable } from "./thenable.js";
+ import {
+-  isServer,
+   isValidTimeout,
+   noop,
+   replaceData,
+@@ -14,6 +13,7 @@ import {
+   shallowEqualObjects,
+   timeUntilStale
+ } from "./utils.js";
++var isServer = false;
+ var QueryObserver = class extends Subscribable {
+   constructor(client, options) {
+     super();
