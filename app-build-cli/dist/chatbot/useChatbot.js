@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient, } from '@tanstack/react-query';
-import { generateChatbot, generateChatbotSpec, getChatbot } from './chatbot.js';
+import { generateChatbot, generateChatbotSpec, getChatbot, listChatBots, } from './chatbot.js';
 import { useCreateChatbotWizardStore } from './store.js';
 const queryKeys = {
-    chatbot: (chatbotId) => ['chatbot', chatbotId],
+    chatbot: (chatbotId) => ['chatbots', chatbotId],
+    chatbots: ['chatbots'],
 };
 export const useChatbot = (chatbotId, options) => {
     return useQuery({
@@ -10,6 +11,12 @@ export const useChatbot = (chatbotId, options) => {
         queryFn: () => getChatbot(chatbotId),
         enabled: !!chatbotId,
         ...options,
+    });
+};
+export const useListChatBots = () => {
+    return useQuery({
+        queryKey: queryKeys.chatbots,
+        queryFn: () => listChatBots(),
     });
 };
 export const useGenerateChatbotSpecs = () => {

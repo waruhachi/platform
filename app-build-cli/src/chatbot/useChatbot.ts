@@ -4,7 +4,12 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
-import { generateChatbot, generateChatbotSpec, getChatbot } from './chatbot.js';
+import {
+  generateChatbot,
+  generateChatbotSpec,
+  getChatbot,
+  listChatBots,
+} from './chatbot.js';
 import type {
   ChatbotGenerationParams,
   ChatBotSpecsGenerationParams,
@@ -12,7 +17,8 @@ import type {
 import { useCreateChatbotWizardStore } from './store.js';
 
 const queryKeys = {
-  chatbot: (chatbotId: string) => ['chatbot', chatbotId],
+  chatbot: (chatbotId: string) => ['chatbots', chatbotId],
+  chatbots: ['chatbots'],
 } as const;
 
 export const useChatbot = (
@@ -24,6 +30,13 @@ export const useChatbot = (
     queryFn: () => getChatbot(chatbotId!),
     enabled: !!chatbotId,
     ...options,
+  });
+};
+
+export const useListChatBots = () => {
+  return useQuery({
+    queryKey: queryKeys.chatbots,
+    queryFn: () => listChatBots(),
   });
 };
 

@@ -92,5 +92,6 @@ export const GenerateStep = ({ onSuccess }) => {
                             ? '🎉 Deployment completed successfully!'
                             : buildSteps[currentStep]?.detail || 'Preparing your chatbot...' }) }), chatbot.readUrl && (_jsx(Box, { marginTop: 1, flexDirection: "column", borderStyle: "round", borderColor: "green", padding: 1, children: _jsxs(Text, { color: "green", children: ["\uD83C\uDF10 Your bot is available at:", ' ', _jsx(Text, { bold: true, underline: true, children: chatbot?.readUrl })] }) })), generateChatbotError && (_jsx(Box, { marginTop: 2, flexDirection: "column", borderStyle: "round", borderColor: "red", padding: 1, children: _jsxs(Text, { color: "red", children: ["\u274C Error: ", generateChatbotError.message] }) })), !chatbot.isDeployed && !generateChatbotError && (_jsx(Box, { marginTop: 2, children: _jsx(Text, { dimColor: true, italic: true, children: "\uD83D\uDD04 Please wait while we set up your chatbot..." }) }))] }));
     }
+    return null;
 };
 //# sourceMappingURL=GenerateStep.js.map

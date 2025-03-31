@@ -230,4 +230,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
       </Box>
     );
   }
+
+  return null;
 };

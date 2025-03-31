@@ -13,6 +13,8 @@ if (process.env.NODE_ENV === 'production') {
   // BACKEND_API_HOST = 'http://localhost:4444';
 }
 
+const BACKEND_BEARER_TOKEN = 'bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1';
+
 function generateMachineId(): string {
   const hostname = os.hostname();
   const username = os.userInfo().username;
@@ -21,7 +23,7 @@ function generateMachineId(): string {
   return machineInfo;
 }
 
-type Chatbot = {
+export type Chatbot = {
   id: string;
   name: string;
   createdAt: Date;
@@ -125,7 +127,7 @@ export const getChatbot = async (chatbotId: string) => {
     const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${chatbotId}`, {
       headers: {
         // TODO: remove this
-        Authorization: `Bearer bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1`,
+        Authorization: `Bearer ${BACKEND_BEARER_TOKEN}`,
       },
     });
 
@@ -139,6 +141,35 @@ export const getChatbot = async (chatbotId: string) => {
     };
   } catch (error) {
     console.error('Error checking bot deployment status:', error);
+    throw error;
+  }
+};
+
+export const listChatBots = async () => {
+  try {
+    const response = await fetch(`${BACKEND_API_HOST}/chatbots`, {
+      headers: {
+        Authorization: `Bearer ${BACKEND_BEARER_TOKEN}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chatbots: ${response.statusText}`);
+    }
+
+    const chatbots = (await response.json()) as {
+      data: Chatbot[];
+      pagination: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      };
+    };
+    console.log('chatbots', chatbots);
+    return chatbots;
+  } catch (error) {
+    console.error('Error fetching chatbots:', error);
     throw error;
   }
 };
