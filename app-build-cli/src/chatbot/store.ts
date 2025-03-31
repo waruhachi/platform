@@ -61,12 +61,16 @@ export const useCreateChatbotWizardStore = create<WizardState>(((set) => ({
     })),
 
   addToHistory: (question: string, answer: string) =>
-    set((state) => ({
-      history: [
-        ...state.history,
-        { question, answer, previousStep: state.step },
-      ],
-    })),
+    set((state) => {
+      const newHistory = state.history.filter((h) => h.question !== question);
+
+      return {
+        history: [
+          ...newHistory,
+          { question, answer, previousStep: state.step },
+        ],
+      };
+    }),
 
   setCanGoBack: (canGoBack: boolean) => set({ canGoBack: canGoBack }),
   setCurrentChatbotId: (chatbotId: string) =>
@@ -83,3 +87,42 @@ export const useCreateChatbotWizardStore = create<WizardState>(((set) => ({
       };
     }),
 })) as StateCreator<WizardState>);
+
+type HistoryState =
+  | undefined
+  | 'chatbot.create'
+  | 'chatbot.list'
+  | `chatbot.create.${StepType}`;
+type NavigationState = {
+  history: HistoryState[];
+  navigate: (state: HistoryState) => void;
+  goBack: () => void;
+};
+
+const useNavigationStore = create<NavigationState>(((set) => ({
+  history: [undefined],
+
+  navigate: (newState: HistoryState) =>
+    set((state) => {
+      return {
+        history: [...state.history, newState],
+      };
+    }),
+  goBack: () =>
+    set((state) => {
+      const newHistory = state.history.slice(0, -1);
+
+      return {
+        history: newHistory,
+      };
+    }),
+})) as StateCreator<NavigationState>);
+
+export function useNavigation() {
+  const history = useNavigationStore((s) => s.history);
+  const navigate = useNavigationStore((s) => s.navigate);
+  const goBack = useNavigationStore((s) => s.goBack);
+  const currentNavigationState = useNavigationStore((s) => s.history.at(-1));
+
+  return { history, navigate, goBack, currentNavigationState };
+}

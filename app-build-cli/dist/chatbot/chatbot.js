@@ -94,7 +94,6 @@ export const listChatBots = async () => {
             throw new Error(`Failed to fetch chatbots: ${response.statusText}`);
         }
         const chatbots = (await response.json());
-        console.log('chatbots', chatbots);
         return chatbots;
     }
     catch (error) {

@@ -1,6 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Text } from 'ink';
-import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import { useState } from 'react';
 import { generateChatbot } from '../chatbot/chatbot.js';

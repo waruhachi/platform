@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Box, Text } from 'ink';
-import SelectInput from 'ink-select-input';
 import { ChatBotFlow } from './chatbot/create-chatbot.js';
 import { ChatbotList } from './components/ChatbotList.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Select } from './components/shared/Select.js';
+import { ShortcutHints } from './components/ui/ShortcutHints.js';
+import { useNavigation } from './chatbot/store.js';
 
 const queryClient = new QueryClient();
 
@@ -13,32 +15,43 @@ const useKeepAlive = () =>
     setInterval(() => {}, 100);
   }, []);
 
-type Mode = 'create' | 'list';
-
-type MenuItem = {
-  label: string;
-  value: Mode;
-};
-
 export const App = () => {
   useKeepAlive();
-  const [mode, setMode] = useState<Mode>('create');
+  const { currentNavigationState, navigate } = useNavigation();
 
-  const items: MenuItem[] = [
-    { label: 'Create new chatbot', value: 'create' },
-    { label: 'List and iterate existing chatbots', value: 'list' },
+  const items = [
+    { label: '🆕 Create new chatbot', value: 'chatbot.create' as const },
+    {
+      label: '📋 List and iterate existing chatbots',
+      value: 'chatbot.list' as const,
+    },
   ];
+
+  let content;
+  if (currentNavigationState?.startsWith('chatbot.create')) {
+    content = <ChatBotFlow />;
+  } else if (currentNavigationState?.startsWith('chatbot.list')) {
+    content = <ChatbotList />;
+  } else {
+    content = (
+      <>
+        <Box marginBottom={1}>
+          <Text bold>🤖 Chatbot Manager</Text>
+        </Box>
+        <Select
+          question="What would you like to do?"
+          options={items}
+          onSubmit={(value) => navigate(value)}
+        />
+      </>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Box flexDirection="column" gap={1}>
-        <Text>Choose an action:</Text>
-        <SelectInput
-          items={items}
-          onSelect={(item: MenuItem) => setMode(item.value)}
-        />
-
-        {mode === 'create' ? <ChatBotFlow /> : <ChatbotList />}
+      <Box flexDirection="column" padding={1}>
+        {content}
+        <ShortcutHints />
       </Box>
     </QueryClientProvider>
   );

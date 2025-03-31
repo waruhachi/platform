@@ -1,20 +1,14 @@
 import { Box, Text } from 'ink';
+import { useCreateChatbotWizardStore } from '../../chatbot/store.js';
 
-type HistoryEntry = {
-  question: string;
-  answer: string;
-};
+export const WizardHistory = () => {
+  const { history } = useCreateChatbotWizardStore();
 
-type WizardHistoryProps = {
-  entries: HistoryEntry[];
-};
-
-export const WizardHistory = ({ entries }: WizardHistoryProps) => {
-  if (entries.length === 0) return null;
+  if (history.length === 0) return null;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      {entries.map((entry, index) => (
+      {history.map((entry, index) => (
         <Box key={index} flexDirection="column" marginBottom={1}>
           <Box>
             <Text color="cyan" dimColor>

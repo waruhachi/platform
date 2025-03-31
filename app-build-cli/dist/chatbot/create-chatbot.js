@@ -8,11 +8,14 @@ import { TokenStep } from './steps/TokenStep.js';
 import { steps } from './steps/steps.js';
 import { Banner } from '../components/ui/Banner.js';
 import { WizardHistory } from '../components/ui/WizardHistory.js';
-import { ShortcutHints } from '../components/ui/ShortcutHints.js';
-import { useCreateChatbotWizardStore } from './store.js';
+import { useCreateChatbotWizardStore, useNavigation } from './store.js';
 import { RunModeStep } from './steps/RunModeStep.js';
 export const ChatBotFlow = () => {
-    const { step, config, history, canGoBack, setStep, setConfig, addToHistory, currentChatbotId, addMessageToChatbotHistory, } = useCreateChatbotWizardStore();
+    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Banner, {}), _jsx(WizardHistory, {}), _jsx(StepContent, {})] }));
+};
+function StepContent() {
+    const { config, setConfig, addToHistory, currentChatbotId, addMessageToChatbotHistory, } = useCreateChatbotWizardStore();
+    const { currentNavigationState, navigate } = useNavigation();
     const handleRunModeSubmit = (runMode) => {
         const newConfig = {
             ...config,
@@ -21,13 +24,13 @@ export const ChatBotFlow = () => {
         setConfig(newConfig);
         addToHistory(steps.runMode.question, steps.runMode.options.find((opt) => opt.value === runMode)?.label ||
             runMode);
-        setStep(steps.runMode.nextStep(newConfig));
+        navigate(`chatbot.create.${steps.runMode.nextStep(newConfig)}`);
     };
     const handleTokenSubmit = (token) => {
         setConfig({ telegramBotToken: token });
         addToHistory(steps.token.question, token.slice(0, 8) + '...' // Show only part of the token for security
         );
-        setStep(steps.token.nextStep);
+        navigate(`chatbot.create.${steps.token.nextStep}`);
     };
     const handleEnvironmentSubmit = (environment) => {
         setConfig({
@@ -35,40 +38,37 @@ export const ChatBotFlow = () => {
         });
         addToHistory(steps.environment.question, steps.environment.options.find((opt) => opt.value === environment)
             ?.label || environment);
-        setStep(steps.environment.nextStep);
+        navigate(`chatbot.create.${steps.environment.nextStep}`);
     };
     const handleGenerateBotSpecsSuccess = (botSpecs, prompt) => {
         setConfig({ prompt });
         addToHistory('What kind of chatbot would you like to create?', prompt);
         addMessageToChatbotHistory('specs', botSpecs.message);
-        setStep(steps[step].nextStep);
+        navigate(`chatbot.create.${steps.generateChatbotSpecs.nextStep}`);
     };
     const handleGenerateBotSuccess = (bot) => {
         addMessageToChatbotHistory('generation', bot.message);
-        setStep(steps[step].nextStep);
+        navigate(`chatbot.create.${steps.generateChatbot.nextStep}`);
     };
-    const stepContent = () => {
-        switch (step) {
-            case 'token':
-                return _jsx(TokenStep, { onSubmit: handleTokenSubmit });
-            case 'environment':
-                return _jsx(EnvironmentStep, { onSubmit: handleEnvironmentSubmit });
-            case 'runMode':
-                return _jsx(RunModeStep, { onSubmit: handleRunModeSubmit });
-            case 'generateChatbotSpecs':
-                return _jsx(GenerateSpecsStep, { onSuccess: handleGenerateBotSpecsSuccess });
-            case 'generateChatbot':
-                return _jsx(GenerateStep, { onSuccess: handleGenerateBotSuccess });
-            case 'successGeneration':
-                if (!currentChatbotId) {
-                    return _jsx(Text, { children: "No chatbot ID found" });
-                }
-                return _jsx(SuccessStep, { chatbotId: currentChatbotId });
-            default:
-                return null;
-        }
-    };
-    const showShortcutHints = history.length > 0 && step !== 'successGeneration' && canGoBack;
-    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Banner, {}), _jsx(WizardHistory, { entries: history }), stepContent(), showShortcutHints && _jsx(ShortcutHints, {})] }));
-};
+    switch (currentNavigationState) {
+        case 'chatbot.create.token':
+            return _jsx(TokenStep, { onSubmit: handleTokenSubmit });
+        case 'chatbot.create.environment':
+            return _jsx(EnvironmentStep, { onSubmit: handleEnvironmentSubmit });
+        case 'chatbot.create.runMode':
+        case 'chatbot.create':
+            return _jsx(RunModeStep, { onSubmit: handleRunModeSubmit });
+        case 'chatbot.create.generateChatbotSpecs':
+            return _jsx(GenerateSpecsStep, { onSuccess: handleGenerateBotSpecsSuccess });
+        case 'chatbot.create.generateChatbot':
+            return _jsx(GenerateStep, { onSuccess: handleGenerateBotSuccess });
+        case 'chatbot.create.successGeneration':
+            if (!currentChatbotId) {
+                return _jsx(Text, { children: "No chatbot ID found" });
+            }
+            return _jsx(SuccessStep, { chatbotId: currentChatbotId });
+        default:
+            return null;
+    }
+}
 //# sourceMappingURL=create-chatbot.js.map

@@ -59,10 +59,4 @@ export type ChatBotConfig = {
   prompt: string;
 };
 
-export type StepType =
-  | 'runMode'
-  | 'token'
-  | 'environment'
-  | 'generateChatbotSpecs'
-  | 'generateChatbot'
-  | 'successGeneration';
+export type StepType = keyof typeof steps;

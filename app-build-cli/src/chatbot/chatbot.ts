@@ -166,7 +166,6 @@ export const listChatBots = async () => {
         totalPages: number;
       };
     };
-    console.log('chatbots', chatbots);
     return chatbots;
   } catch (error) {
     console.error('Error fetching chatbots:', error);
