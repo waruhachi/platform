@@ -1,11 +1,11 @@
 import { Box, Text } from 'ink';
-import { TextInput as InkTextInput } from '@inkjs/ui';
+import { TextInput as InkTextInput, type TextInputProps } from '@inkjs/ui';
 
 export type FreeTextProps = {
   question: string;
   onSubmit: (value: string) => void;
   placeholder?: string;
-};
+} & TextInputProps;
 
 export const FreeText = ({
   question,
@@ -26,7 +26,9 @@ export const FreeText = ({
         <Text color="blue">❯ </Text>
         <InkTextInput
           placeholder={placeholder}
-          onSubmit={(value) => onSubmit(value)}
+          onSubmit={(value) => {
+            onSubmit(value);
+          }}
         />
       </Box>
     </Box>

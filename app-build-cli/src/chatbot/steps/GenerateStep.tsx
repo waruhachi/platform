@@ -2,87 +2,94 @@ import { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import { FreeText } from '../../components/shared/FreeText.js';
-import { generateChatbot } from '../chatbot.js';
-import { useCheckChatbotStatus } from '../useChatbot.js';
-import { type GenerateStepProps } from './types.js';
+import { StepHeader } from '../../components/ui/StepHeader.js';
+import { ProgressSteps } from '../../components/ui/ProgressSteps.js';
+import { type ChatbotGenerationResult } from '../chatbot.js';
+import { useChatbot, useGenerateChatbot } from '../useChatbot.js';
+import { useCreateChatbotWizardStore } from '../store.js';
 
-export const GenerateStep = ({
-  onSuccess,
-  chatbot,
-  config,
-}: GenerateStepProps) => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [formState, setFormState] = useState<{
-    status: 'idle' | 'loading' | 'error' | 'success';
-    data: any;
-    error: string | null;
-  }>({
-    status: 'idle',
-    data: null,
-    error: null,
-  });
+const buildSteps = [
+  {
+    message: '🏗️  Generating business model and use cases...',
+    detail: '🎯 Analyzing requirements and creating domain models',
+  },
+  {
+    message: '🗄️  Designing database schema...',
+    detail: '📊 Creating tables, relations, and indexes',
+  },
+  {
+    message: '⚡ Generating TypeScript code...',
+    detail: '🔧 Creating type-safe implementations of your bot logic',
+  },
+  {
+    message: '🚀 Compiling TypeScript...',
+    detail: '✨ Ensuring type safety and generating JavaScript',
+  },
+  {
+    message: '🧪 Generating test suites...',
+    detail: '🎯 Creating comprehensive tests for your bot',
+  },
+  {
+    message: '🛠️  Implementing handlers...',
+    detail: '🔌 Creating route handlers and middleware',
+  },
+  {
+    message: '✨ Finalizing code quality...',
+    detail: '🎨 Running linters and formatters',
+  },
+];
 
-  const { isDeployed, readUrl, error } = useCheckChatbotStatus(
-    // @ts-expect-error
-    chatbot?.chatbotId
+export type GenerateStepProps = {
+  onSuccess: (bot: ChatbotGenerationResult) => void;
+};
+
+export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
+  const config = useCreateChatbotWizardStore((s) => s.config);
+  const chatbotId = useCreateChatbotWizardStore((s) => s.currentChatbotId);
+
+  const chatbotMessageHistory = useCreateChatbotWizardStore(
+    (s) => s.chatbotMessageHistory
   );
 
-  const isWaitingForSpecsApproval =
-    formState.status !== 'success' && !isDeployed;
+  const [currentStep, setCurrentStep] = useState(0);
+  const {
+    mutate: generateChatbot,
+    isPending: isGeneratingChatbot,
+    error: generateChatbotError,
+    data: generateChatbotData,
+  } = useGenerateChatbot();
+  const { data: chatbot } = useChatbot(chatbotId, {
+    refetchInterval: 5_000,
+  });
 
-  const steps = [
-    {
-      message: '🏗️  Generating business model and use cases...',
-      detail: '🎯 Analyzing requirements and creating domain models',
-    },
-    {
-      message: '🗄️  Designing database schema...',
-      detail: '📊 Creating tables, relations, and indexes',
-    },
-    {
-      message: '⚡ Generating TypeScript code...',
-      detail: '🔧 Creating type-safe implementations of your bot logic',
-    },
-    {
-      message: '🚀 Compiling TypeScript...',
-      detail: '✨ Ensuring type safety and generating JavaScript',
-    },
-    {
-      message: '🧪 Generating test suites...',
-      detail: '🎯 Creating comprehensive tests for your bot',
-    },
-    {
-      message: '🛠️  Implementing handlers...',
-      detail: '🔌 Creating route handlers and middleware',
-    },
-    {
-      message: '✨ Finalizing code quality...',
-      detail: '🎨 Running linters and formatters',
-    },
-  ];
+  const isWaitingForSpecsApproval =
+    !chatbot?.isDeployed && !generateChatbotData;
 
   useEffect(() => {
-    let stepInterval: NodeJS.Timeout;
+    if (isWaitingForSpecsApproval || !chatbot || !chatbotId) {
+      return;
+    }
+
+    console.log({ isDeployed: chatbot.isDeployed, generateChatbotData });
+
+    // Handle successful deployment
+    if (chatbot?.isDeployed && generateChatbotData) {
+      console.log(
+        'LET"S goooooooo - - - - - - -- - - - - - - - - -- - - dasdasdas'
+      );
+      onSuccess(generateChatbotData);
+      return;
+    }
+
     let isActive = true;
 
     const updateStep = () => {
       if (!isActive) return;
-      setCurrentStep((prev) => (prev + 1) % steps.length);
+      setCurrentStep((prev) => (prev + 1) % buildSteps.length);
     };
 
-    // Handle successful deployment
-    if (isDeployed && chatbot?.success) {
-      onSuccess(chatbot, config.prompt);
-      return;
-    }
-
-    // Don't start interval if already deployed or if chatbot failed
-    if (isDeployed || !chatbot?.success) {
-      return;
-    }
-
     // Progress through steps every 5 seconds
-    stepInterval = setInterval(updateStep, 5000);
+    const stepInterval = setInterval(updateStep, 5000);
 
     // Cleanup function
     return () => {
@@ -91,57 +98,20 @@ export const GenerateStep = ({
         clearInterval(stepInterval);
       }
     };
-  }, [chatbot?.success, isDeployed, config.prompt]);
+  }, [
+    chatbot,
+    chatbotId,
+    generateChatbotData,
+    isWaitingForSpecsApproval,
+    onSuccess,
+  ]);
 
-  const handleSubmit = async (prompt: string) => {
-    if (!chatbot?.success) {
-      setFormState({
-        status: 'error',
-        data: null,
-        error: 'Failed to get chatbot ID',
-      });
-      return;
-    }
-
-    setFormState({ status: 'loading', data: null, error: null });
-
-    try {
-      const result = await generateChatbot({
-        ...config,
-        prompt,
-        botId: chatbot.chatbotId,
-      });
-
-      if (result.success) {
-        setFormState({ status: 'success', data: result, error: null });
-      } else {
-        setFormState({
-          status: 'error',
-          data: null,
-          error: result.error || 'Unknown error occurred',
-        });
-      }
-    } catch (err) {
-      setFormState({
-        status: 'error',
-        data: null,
-        error:
-          err instanceof Error ? err.message : 'Failed to generate chatbot',
-      });
-    }
-  };
-
-  if (!chatbot?.success) {
-    return (
-      <Box flexDirection="column">
-        <Text color="red">✗ Error: {chatbot?.error}</Text>
-      </Box>
-    );
-  }
+  if (!chatbot) return null;
 
   if (isWaitingForSpecsApproval) {
     return (
       <Box flexDirection="column">
+        <StepHeader label="Review Specifications" progress={0.8} />
         <Box
           flexDirection="column"
           borderStyle="round"
@@ -154,7 +124,7 @@ export const GenerateStep = ({
               Generated Chatbot Specification
             </Text>
           </Box>
-          <Text>{chatbot.message}</Text>
+          <Text>{chatbotMessageHistory['specs'].at(-1)}</Text>
         </Box>
 
         <Box marginBottom={1}>
@@ -165,94 +135,101 @@ export const GenerateStep = ({
         </Box>
 
         <Box marginTop={1} gap={1}>
-          {formState.status === 'loading' && <Spinner />}
+          {isGeneratingChatbot && <Spinner />}
           <FreeText
             question="Type 'yes' to deploy or provide feedback to modify the specifications:"
             placeholder="e.g., yes or I want to add more features..."
-            onSubmit={handleSubmit}
+            onSubmit={() => {
+              generateChatbot({ ...config, botId: chatbot.id });
+            }}
           />
         </Box>
 
-        {formState.status === 'error' && (
-          <Box marginTop={1} flexDirection="column">
-            <Text color="red">✗ Error: {formState.error}</Text>
+        {generateChatbotError && (
+          <Box
+            marginTop={1}
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="red"
+            padding={1}
+          >
+            <Text color="red">✗ Error: {generateChatbotError.message}</Text>
           </Box>
         )}
       </Box>
     );
   }
 
-  return (
-    <Box flexDirection="column">
-      <Box
-        flexDirection="column"
-        borderStyle="round"
-        borderColor="blue"
-        padding={1}
-        marginBottom={1}
-      >
-        <Box marginBottom={1}>
-          <Text color="blue" bold>
-            🤖 Building Your Chatbot
-          </Text>
-        </Box>
-        <Text>
-          🔑 Bot ID: <Text color="yellow">{chatbot.chatbotId}</Text>
-        </Text>
-      </Box>
-
-      <Box flexDirection="column" marginY={1}>
-        {steps.map((step, index) => (
-          <Box key={index} marginY={1}>
-            {index === currentStep && !isDeployed ? (
-              <>
-                <Text color="yellow">⟐ </Text>
-                <Text color="yellow" bold>
-                  {step.message}
-                </Text>
-              </>
-            ) : index < currentStep || isDeployed ? (
-              <>
-                <Text color="green">✓ </Text>
-                <Text dimColor>{step.message}</Text>
-              </>
-            ) : (
-              <>
-                <Text color="gray">○ </Text>
-                <Text dimColor>{step.message}</Text>
-              </>
-            )}
+  if (!chatbot.isDeployed) {
+    return (
+      <Box flexDirection="column">
+        <StepHeader label="Building Your Chatbot" progress={0.9} />
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor="blue"
+          padding={1}
+          marginBottom={1}
+        >
+          <Box marginBottom={1}>
+            <Text dimColor>Bot ID: </Text>
+            <Text color="yellow" bold>
+              {chatbot.id}
+            </Text>
           </Box>
-        ))}
-      </Box>
+        </Box>
 
-      <Box marginTop={1}>
-        <Text dimColor italic>
-          {isDeployed
-            ? '🎉 Deployment completed successfully!'
-            : steps[currentStep]?.detail || 'Preparing your chatbot...'}
-        </Text>
-      </Box>
+        <ProgressSteps
+          steps={buildSteps}
+          currentStep={currentStep}
+          isDeployed={chatbot.isDeployed}
+        />
 
-      {readUrl && (
-        <Box marginTop={1} flexDirection="column">
-          <Text color="green">
-            🌐 Your bot is available at: <Text bold>{readUrl}</Text>
+        <Box marginTop={1}>
+          <Text dimColor italic>
+            {chatbot.isDeployed
+              ? '🎉 Deployment completed successfully!'
+              : buildSteps[currentStep]?.detail || 'Preparing your chatbot...'}
           </Text>
         </Box>
-      )}
 
-      <Box marginTop={2} flexDirection="column">
-        {error ? (
-          <Text color="red">❌ Error: {error}</Text>
-        ) : (
-          !isDeployed && (
+        {chatbot.readUrl && (
+          <Box
+            marginTop={1}
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="green"
+            padding={1}
+          >
+            <Text color="green">
+              🌐 Your bot is available at:{' '}
+              <Text bold underline>
+                {chatbot?.readUrl}
+              </Text>
+            </Text>
+          </Box>
+        )}
+
+        {generateChatbotError && (
+          <Box
+            marginTop={2}
+            flexDirection="column"
+            borderStyle="round"
+            borderColor="red"
+            padding={1}
+          >
+            <Text color="red">❌ Error: {generateChatbotError.message}</Text>
+          </Box>
+        )}
+
+        {!chatbot.isDeployed && !generateChatbotError && (
+          <Box marginTop={2}>
             <Text dimColor italic>
               🔄 Please wait while we set up your chatbot...
             </Text>
-          )
+          </Box>
         )}
       </Box>
-    </Box>
-  );
+    );
+  }
 };

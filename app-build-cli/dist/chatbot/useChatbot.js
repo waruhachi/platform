@@ -1,32 +1,49 @@
-import { useState, useEffect } from 'react';
-import { checkBotDeploymentStatus } from './chatbot.js';
-const POLL_INTERVAL = 5_000;
-export function useCheckChatbotStatus(chatbotId) {
-    const [status, setStatus] = useState({ isDeployed: false });
-    useEffect(() => {
-        let isActive = true;
-        const checkDeployment = async () => {
-            if (!isActive || !chatbotId)
-                return;
-            try {
-                const status = await checkBotDeploymentStatus(chatbotId);
-                console.log('Deployment status:', status);
-                setStatus(status);
-            }
-            catch (error) {
-                console.error('Failed to check deployment status:', error);
-            }
-        };
-        // Initial check
-        checkDeployment();
-        // Set up polling interval
-        const interval = setInterval(checkDeployment, POLL_INTERVAL);
-        // Cleanup
-        return () => {
-            isActive = false;
-            clearInterval(interval);
-        };
-    }, [chatbotId]);
-    return status;
-}
+import { useMutation, useQuery, useQueryClient, } from '@tanstack/react-query';
+import { generateChatbot, generateChatbotSpec, getChatbot } from './chatbot.js';
+import { useCreateChatbotWizardStore } from './store.js';
+const queryKeys = {
+    chatbot: (chatbotId) => ['chatbot', chatbotId],
+};
+export const useChatbot = (chatbotId, options) => {
+    return useQuery({
+        queryKey: queryKeys.chatbot(chatbotId ?? ''),
+        queryFn: () => getChatbot(chatbotId).then((res) => {
+            console.log({ chatbotPoll: res });
+            return res;
+        }),
+        enabled: !!chatbotId,
+        ...options,
+    });
+};
+export const useGenerateChatbotSpecs = () => {
+    const queryClient = useQueryClient();
+    const setCanGoBack = useCreateChatbotWizardStore((state) => state.setCanGoBack);
+    const setCurrentChatbotId = useCreateChatbotWizardStore((state) => state.setCurrentChatbotId);
+    return useMutation({
+        mutationFn: (params) => {
+            // Disable going back to the previous step
+            setCanGoBack(false);
+            return generateChatbotSpec(params);
+        },
+        onSuccess: (data) => {
+            setCurrentChatbotId(data.chatbotId);
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.chatbot(data.chatbotId),
+            });
+        },
+    });
+};
+export const useGenerateChatbot = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (params) => {
+            return generateChatbot(params);
+        },
+        onSuccess: (data) => {
+            void queryClient.invalidateQueries({
+                queryKey: queryKeys.chatbot(data.chatbotId),
+            });
+        },
+    });
+};
 //# sourceMappingURL=useChatbot.js.map

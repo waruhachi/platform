@@ -1,21 +1,23 @@
+import { Box } from 'ink';
 import { FreeText } from '../../components/shared/FreeText.js';
-import { type StepProps } from './types.js';
+import { StepHeader } from '../../components/ui/StepHeader.js';
+import { steps } from './steps.js';
 
-export const TokenStep = ({
-  config,
-  setConfig,
-  setStep,
-  steps,
-  step,
-}: StepProps) => {
+type TokenStepProps = {
+  onSubmit: (token: string) => void;
+};
+
+export const TokenStep = ({ onSubmit }: TokenStepProps) => {
   return (
-    <FreeText
-      question={steps.token.question}
-      placeholder={steps.token.placeholder}
-      onSubmit={(telegramBotToken) => {
-        setConfig((prev) => ({ ...prev, telegramBotToken }));
-        setStep(steps[step].nextStep);
-      }}
-    />
+    <Box flexDirection="column">
+      <StepHeader label={steps.token.label} progress={steps.token.progress} />
+      <Box marginY={1}>
+        <FreeText
+          question={steps.token.question}
+          placeholder={steps.token.placeholder}
+          onSubmit={onSubmit}
+        />
+      </Box>
+    </Box>
   );
 };

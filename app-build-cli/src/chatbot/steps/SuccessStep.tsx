@@ -1,95 +1,39 @@
-import { Box, Text } from 'ink';
-import { type ChatbotGenerationResult } from '../chatbot.js';
-import { type ChatBotConfig } from './types.js';
+import { Box } from 'ink';
+import { StepHeader } from '../../components/ui/StepHeader.js';
+import { SuccessMessage } from '../../components/ui/SuccessMessage.js';
+import { useChatbot } from '../useChatbot.js';
 
 type SuccessStepProps = {
-  chatbot: ChatbotGenerationResult;
-  config: ChatBotConfig;
+  chatbotId: string;
 };
 
-export const SuccessStep = ({ chatbot, config }: SuccessStepProps) => {
-  if (!chatbot?.success) return null;
+export const SuccessStep = ({ chatbotId }: SuccessStepProps) => {
+  const { data: chatbot } = useChatbot(chatbotId);
+
+  if (!chatbot) {
+    return null;
+  }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box
-        flexDirection="column"
-        borderStyle="round"
-        borderColor="green"
-        padding={1}
-        marginBottom={1}
-      >
-        <Box>
-          <Text backgroundColor="green" color="black" bold>
-            {' '}
-            SUCCESS{' '}
-          </Text>
-          <Text color="green" bold>
-            {' '}
-            Chatbot created successfully!
-          </Text>
-        </Box>
-        <Box marginLeft={2} marginTop={1}>
-          <Text dimColor>Chatbot ID: </Text>
-          <Text bold>{chatbot.chatbotId}</Text>
-        </Box>
-        {chatbot.message && (
-          <Box marginLeft={2}>
-            <Text dimColor>Message: </Text>
-            <Text>{chatbot.message}</Text>
-          </Box>
-        )}
-      </Box>
-
-      <Box
-        flexDirection="column"
-        borderStyle="round"
-        borderColor="blue"
-        padding={1}
-      >
-        <Text bold underline>
-          Configuration Summary
-        </Text>
-        <Box marginTop={1}>
-          <Text dimColor>Bot Token: </Text>
-          <Text color="green">{config.telegramBotToken}</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Environment: </Text>
-          <Text color="green">
-            {config.useStaging ? 'Staging' : 'Production'}
-          </Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Run Mode: </Text>
-          <Text color="green">{config.runMode}</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Prompt: </Text>
-          <Text color="green">{config.prompt}</Text>
-        </Box>
-      </Box>
-
-      <Box marginTop={2} flexDirection="column">
-        <Text bold>Next Steps:</Text>
-        <Text>
-          1. Save your Chatbot ID:{' '}
-          <Text color="yellow" bold>
-            {chatbot.chatbotId}
-          </Text>
-        </Text>
-        <Text>
-          2.{' '}
-          {config.runMode === 'telegram'
-            ? 'Open Telegram and start chatting with your bot!'
-            : 'Your HTTP server is ready to accept requests.'}
-        </Text>
-        <Box marginTop={1}>
-          <Text dimColor italic>
-            Press Ctrl+C to exit
-          </Text>
-        </Box>
-      </Box>
+    <Box flexDirection="column">
+      <StepHeader label="Success!" progress={1} />
+      <SuccessMessage
+        title="Chatbot Created Successfully!"
+        message={`Your chatbot has been created and is ready to use. You can access it at: ${chatbot.readUrl}`}
+        details={[
+          { label: 'Bot ID', value: chatbotId },
+          {
+            label: 'Status',
+            value: 'Your chatbot is now ready to handle user interactions.',
+            color: 'green',
+          },
+          {
+            label: 'Next Steps',
+            value:
+              'You can customize and extend its functionality through the web interface.',
+          },
+        ]}
+      />
     </Box>
   );
 };

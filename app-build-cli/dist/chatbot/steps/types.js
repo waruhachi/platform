@@ -1,2 +1,2 @@
-import {} from '../chatbot.js';
+export {};
 //# sourceMappingURL=types.js.map

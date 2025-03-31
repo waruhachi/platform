@@ -1,24 +1,26 @@
+import { Box } from 'ink';
 import { Select } from '../../components/shared/Select.js';
-import { type StepProps } from './types.js';
+import { StepHeader } from '../../components/ui/StepHeader.js';
+import { steps } from './steps.js';
 
-export const EnvironmentStep = ({
-  config,
-  setConfig,
-  setStep,
-  steps,
-  step,
-}: StepProps) => {
+type EnvironmentStepProps = {
+  onSubmit: (environment: string) => void;
+};
+
+export const EnvironmentStep = ({ onSubmit }: EnvironmentStepProps) => {
   return (
-    <Select
-      question={steps.environment.question}
-      options={steps.environment.options}
-      onSubmit={(environment) => {
-        setConfig((prev) => ({
-          ...prev,
-          useStaging: environment === 'staging',
-        }));
-        setStep(steps[step].nextStep);
-      }}
-    />
+    <Box flexDirection="column">
+      <StepHeader
+        label={steps.environment.label}
+        progress={steps.environment.progress}
+      />
+      <Box marginY={1}>
+        <Select
+          question={steps.environment.question}
+          options={steps.environment.options}
+          onSubmit={(value) => onSubmit(value)}
+        />
+      </Box>
+    </Box>
   );
 };

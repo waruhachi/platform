@@ -1,25 +1,26 @@
+import { Box } from 'ink';
 import { Select } from '../../components/shared/Select.js';
-import { type StepProps } from './types.js';
+import { StepHeader } from '../../components/ui/StepHeader.js';
+import { steps } from './steps.js';
 
-export const RunModeStep = ({
-  config,
-  setConfig,
-  setStep,
-  steps,
-  step,
-}: StepProps) => {
+type RunModeStepProps = {
+  onSubmit: (runMode: string) => void;
+};
+
+export const RunModeStep = ({ onSubmit }: RunModeStepProps) => {
   return (
-    <Select
-      question={steps.runMode.question}
-      options={steps.runMode.options}
-      onSubmit={(runMode) => {
-        const newConfig = {
-          ...config,
-          runMode: runMode as 'telegram' | 'http-server',
-        };
-        setConfig(newConfig);
-        setStep(steps[step].nextStep(newConfig));
-      }}
-    />
+    <Box flexDirection="column">
+      <StepHeader
+        label={steps.runMode.label}
+        progress={steps.runMode.progress}
+      />
+      <Box marginY={1}>
+        <Select
+          question={steps.runMode.question}
+          options={steps.runMode.options}
+          onSubmit={(value) => onSubmit(value as string)}
+        />
+      </Box>
+    </Box>
   );
 };
