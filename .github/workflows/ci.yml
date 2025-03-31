@@ -25,7 +25,6 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        working-directory: platform
         run: bun install
 
       - name: Run Lint
