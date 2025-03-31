@@ -312,6 +312,16 @@ CMD [ "bun", "run", "start" ]
 `,
   );
 
+  fs.writeFileSync(
+    path.join(packageJsonDirectory, ".dockerignore"),
+    `
+node_modules
+.git
+.gitignore
+.env
+`,
+  );
+
   const flyAppName = `app-${botId}`;
   const envVars = {
     TELEGRAM_BOT_TOKEN:
@@ -336,6 +346,7 @@ CMD [ "bun", "run", "start" ]
       `${flyBinary} apps destroy ${flyAppName} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
       {
         stdio: "inherit",
+        cwd: packageJsonDirectory,
       },
     );
   } catch (error) {
@@ -900,7 +911,7 @@ app.post(
 
             try {
               execSync(
-                `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
+                `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80 --dockerignore-from-gitignore`,
                 { stdio: "inherit" },
               );
               logger.info("Successfully deployed under-construction page", {
