@@ -41,7 +41,7 @@ jobs:
         run: bun install
 
       - name: Backend - Test
-        working-directory: platform/apps/backend
+        working-directory: platform
         env:
           FLY_IO_TOKEN: ${{ secrets.FLY_IO_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -55,4 +55,4 @@ jobs:
           DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY }}
           DEPLOYED_BOT_PERPLEXITY_API_KEY: ${{ secrets.DEPLOYED_BOT_PERPLEXITY_API_KEY }}
           DEPLOYED_BOT_PICA_SECRET_KEY: ${{ secrets.DEPLOYED_BOT_PICA_SECRET_KEY }}
-        run: bun run test 
+        run: bun test
