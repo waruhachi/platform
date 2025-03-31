@@ -1,11 +1,7 @@
 "use client";
 
 import { Row } from "@tanstack/react-table";
-import {
-  MoreHorizontal,
-  ExternalLink,
-  FileSearch2,
-} from "lucide-react";
+import { MoreHorizontal, ExternalLink, FileSearch2 } from "lucide-react";
 import { Button } from "@repo/design/shadcn/button";
 import {
   DropdownMenu,

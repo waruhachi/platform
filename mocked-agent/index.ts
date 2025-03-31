@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 
-const fastify = Fastify({
+export const fastify = Fastify({
   logger: true,
 });
 
@@ -193,13 +193,15 @@ fastify.post(
 );
 
 // Start the server
-const start = async () => {
+export const start = async () => {
   try {
-    await fastify.listen({ port: 5575, host: "0.0.0.0" });
+    return await fastify.listen({ port: 5575, host: "0.0.0.0" });
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
   }
 };
 
-start();
+if (process.env.NODE_ENV !== "test") {
+  start();
+}

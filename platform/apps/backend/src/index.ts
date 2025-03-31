@@ -19,26 +19,26 @@ import { createApiClient } from "@neondatabase/api-client";
 import { desc, eq, getTableColumns, sql, gt } from "drizzle-orm";
 import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
-import winston from 'winston';
+import winston from "winston";
 
 // Configure Winston logger
 const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
+  level: process.env.LOG_LEVEL || "info",
   format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.json()
+    winston.format.json(),
   ),
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
-        winston.format.simple()
-      )
-    })
-  ]
+        winston.format.simple(),
+      ),
+    }),
+  ],
 });
 
-config();
+config({ path: ".env.local" });
 
 let flyBinary: string;
 if (process.env.NODE_ENV === "production") {
@@ -89,12 +89,12 @@ async function validateAuth(
   try {
     payload = (await jose.jwtVerify(accessToken, jwks)).payload;
   } catch (error) {
-    logger.error('JWT verification failed', { error });
+    logger.error("JWT verification failed", { error });
     return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
   if (!payload.sub) {
-    logger.warn('No subject found in JWT payload');
+    logger.warn("No subject found in JWT payload");
     return reply.status(401).send({ error: "Invalid authentication token" });
   }
 
@@ -114,23 +114,22 @@ async function validateAuth(
     );
 
     if (!response.ok) {
-      logger.error('Failed to fetch user data from Stack Auth', { 
+      logger.error("Failed to fetch user data from Stack Auth", {
         statusText: response.statusText,
-        status: response.status 
+        status: response.status,
       });
       return reply.status(401).send({ error: "Failed to validate user" });
     }
 
     const responseJson = await response.json();
     if (!responseJson.primary_email.endsWith("@neon.tech")) {
-      logger.warn('Unauthorized email domain attempt', { 
-        email: responseJson.primary_email 
+      logger.warn("Unauthorized email domain attempt", {
+        email: responseJson.primary_email,
       });
       return reply.status(403).send({ error: "Unauthorized email domain" });
     }
-
   } catch (error) {
-    logger.error('Stack Auth API call failed', { error });
+    logger.error("Stack Auth API call failed", { error });
     return reply.status(500).send({ error: "Authentication service error" });
   }
 }
@@ -185,10 +184,10 @@ async function getS3Checksum(botId: string): Promise<string | null> {
   } catch (error: any) {
     // Don't log if it's just a NotFound error (expected for new bots)
     if (error.$metadata?.httpStatusCode !== 404) {
-      logger.error('Error getting S3 checksum', { 
+      logger.error("Error getting S3 checksum", {
         botId,
         error,
-        httpStatusCode: error.$metadata?.httpStatusCode 
+        httpStatusCode: error.$metadata?.httpStatusCode,
       });
     }
     return null;
@@ -248,7 +247,7 @@ async function deployBot({
   execSync(`unzip -o ${zipPath} -d ${extractDir}`);
 
   const files = execSync(`ls -la ${extractDir}`).toString();
-  logger.info('Extracted files', { files });
+  logger.info("Extracted files", { files });
 
   const packageJsonPath = execSync(
     `find ${extractDir} -maxdepth 3 -not -path "*tsp_schema*" -name package.json -print -quit`,
@@ -257,14 +256,14 @@ async function deployBot({
     .trim();
   const packageJsonDirectory = path.dirname(packageJsonPath);
 
-  logger.info('Found package.json directory', { packageJsonDirectory });
+  logger.info("Found package.json directory", { packageJsonDirectory });
 
   // Create a Neon database
   const { data } = await neonClient.createProject({
     project: {},
   });
   const connectionString = data.connection_uris[0].connection_uri;
-  logger.info('Created Neon database', { projectId: data.project.id });
+  logger.info("Created Neon database", { projectId: data.project.id });
 
   // Write the `Dockerfile` to the packageJsonDirectory
   fs.writeFileSync(
@@ -340,13 +339,16 @@ CMD [ "bun", "run", "start" ]
       },
     );
   } catch (error) {
-    logger.error("Error destroying fly app", { 
-      error: error instanceof Error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : String(error),
-      flyAppName 
+    logger.error("Error destroying fly app", {
+      error:
+        error instanceof Error
+          ? {
+              message: error.message,
+              stack: error.stack,
+              name: error.name,
+            }
+          : String(error),
+      flyAppName,
     });
   }
 
@@ -356,9 +358,9 @@ CMD [ "bun", "run", "start" ]
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
   logger.info("Fly launch completed", { flyAppName });
-  logger.info("Updating chatbots table", { 
+  logger.info("Updating chatbots table", {
     flyAppName,
-    botId
+    botId,
   });
 
   await db
@@ -404,7 +406,7 @@ CMD [ "bun", "run", "start" ]
   }
 }
 
-const app = fastify({
+export const app = fastify({
   logger: true,
 });
 
@@ -426,10 +428,10 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
         continue;
       }
 
-      logger.info('Bot has new checksum', {
+      logger.info("Bot has new checksum", {
         botId: bot.id,
         currentChecksum,
-        previousChecksum: bot.s3Checksum
+        previousChecksum: bot.s3Checksum,
       });
 
       const { readUrl } = await getReadPresignedUrls(bot.id);
@@ -437,16 +439,16 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
       // Verify we can fetch the source code
       const response = await fetch(readUrl);
       if (!response.ok) {
-        logger.error('Failed to fetch source code', {
+        logger.error("Failed to fetch source code", {
           botId: bot.id,
           statusText: response.statusText,
-          status: response.status
+          status: response.status,
         });
         continue;
       }
 
       if (bot.runMode === "telegram" && !bot.telegramBotToken) {
-        logger.warn('Bot missing Telegram token', { botId: bot.id });
+        logger.warn("Bot missing Telegram token", { botId: bot.id });
         continue;
       }
 
@@ -461,13 +463,16 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
         })
         .where(eq(chatbots.id, bot.id));
     } catch (error) {
-      logger.error('Error processing bot', { 
-        botId: bot.id, 
-        error: error instanceof Error ? {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
-        } : String(error)
+      logger.error("Error processing bot", {
+        botId: bot.id,
+        error:
+          error instanceof Error
+            ? {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+              }
+            : String(error),
       });
     }
   }
@@ -605,42 +610,42 @@ app.post(
         clientSource,
       } = request.body;
 
-      logger.info('Generate request received', { 
+      logger.info("Generate request received", {
         userId,
         runMode,
         useStaging,
         useMockedAgent,
         clientSource,
         hasSourceCodeFile: !!sourceCodeFile,
-        promptLength: prompt.length
+        promptLength: prompt.length,
       });
 
       let botId = request.body.botId;
       if (!botId) {
         botId = uuidv4();
-        logger.info('Generated new bot ID', { botId });
+        logger.info("Generated new bot ID", { botId });
       } else {
-        logger.info('Using existing bot ID', { botId });
+        logger.info("Using existing bot ID", { botId });
       }
 
       const { writeUrl, readUrl } =
         await createS3DirectoryWithPresignedUrls(botId);
-      logger.info('Created S3 presigned URLs', { 
+      logger.info("Created S3 presigned URLs", {
         botId,
-        writeUrlExpiry: new Date(Date.now() + 3600 * 1000).toISOString()
+        writeUrlExpiry: new Date(Date.now() + 3600 * 1000).toISOString(),
       });
 
       const existingBot = await db
         .select()
         .from(chatbots)
         .where(eq(chatbots.id, botId));
-      
+
       if (existingBot && existingBot[0]) {
-        logger.info('Found existing bot', { 
+        logger.info("Found existing bot", {
           botId,
           receivedSuccess: existingBot[0].receivedSuccess,
           recompileInProgress: existingBot[0].recompileInProgress,
-          currentRunMode: existingBot[0].runMode
+          currentRunMode: existingBot[0].runMode,
         });
       }
 
@@ -662,10 +667,10 @@ app.post(
           },
         })
         .returning();
-      logger.info('Upserted bot in database', { 
+      logger.info("Upserted bot in database", {
         botId,
         runMode,
-        userId
+        userId,
       });
 
       await db.insert(chatbotPrompts).values({
@@ -674,7 +679,7 @@ app.post(
         chatbotId: botId,
         kind: "user",
       });
-      logger.info('Inserted user prompt', { botId });
+      logger.info("Inserted user prompt", { botId });
 
       const allPrompts = await db
         .select({
@@ -685,32 +690,32 @@ app.post(
         .from(chatbotPrompts)
         .where(eq(chatbotPrompts.chatbotId, botId));
 
-      logger.info('Retrieved all prompts', { 
+      logger.info("Retrieved all prompts", {
         botId,
         promptCount: allPrompts.length,
-        promptTypes: allPrompts.map(p => p.kind)
+        promptTypes: allPrompts.map((p) => p.kind),
       });
 
       if (allPrompts.length < 1) {
-        logger.error('No prompts found after insertion', { botId });
+        logger.error("No prompts found after insertion", { botId });
         throw new Error("Failed to insert prompt into chatbot_prompts");
       }
 
       try {
         // If sourceCodeFile is provided, upload it directly to S3 and skip the /prepare/compile endpoints
         if (sourceCodeFile) {
-          logger.info('Starting source code file upload', { 
+          logger.info("Starting source code file upload", {
             botId,
             fileName: sourceCodeFile.name,
-            contentSizeBytes: sourceCodeFile.content.length
+            contentSizeBytes: sourceCodeFile.content.length,
           });
 
           try {
             // Decode the base64 content
             const fileBuffer = Buffer.from(sourceCodeFile.content, "base64");
-            logger.debug('Decoded base64 content', {
+            logger.debug("Decoded base64 content", {
               botId,
-              bufferSizeBytes: fileBuffer.length
+              bufferSizeBytes: fileBuffer.length,
             });
 
             // Upload the file to S3 using the writeUrl
@@ -723,19 +728,19 @@ app.post(
             });
 
             if (!response.ok) {
-              logger.error('S3 upload failed', {
+              logger.error("S3 upload failed", {
                 botId,
                 status: response.status,
-                statusText: response.statusText
+                statusText: response.statusText,
               });
               throw new Error(
                 `Failed to upload file to S3: ${response.statusText}`,
               );
             }
 
-            logger.info('Successfully uploaded source code file', { 
+            logger.info("Successfully uploaded source code file", {
               botId,
-              status: response.status
+              status: response.status,
             });
 
             return reply.send({
@@ -743,9 +748,9 @@ app.post(
               message: `Source code uploaded successfully`,
             });
           } catch (uploadError) {
-            logger.error('Error uploading source code file', { 
+            logger.error("Error uploading source code file", {
               botId,
-              error: uploadError 
+              error: uploadError,
             });
             throw new Error(
               `Failed to upload source code file: ${uploadError}`,
@@ -759,16 +764,18 @@ app.post(
               ? "http://18.237.53.81:8080"
               : "http://54.245.178.56:8080";
 
-          logger.info('Using agent API', {
+          logger.info("Using agent API", {
             botId,
             url: AGENT_API_URL,
             useMockedAgent,
-            useStaging
+            useStaging,
           });
 
           if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
             if (existingBot[0].recompileInProgress) {
-              logger.info('Skipping recompile - already in progress', { botId });
+              logger.info("Skipping recompile - already in progress", {
+                botId,
+              });
               return reply.send({
                 newBot: {
                   id: botId,
@@ -777,7 +784,7 @@ app.post(
               });
             }
 
-            logger.info('Starting recompile for existing bot', { botId });
+            logger.info("Starting recompile for existing bot", { botId });
             const compileResponse = await fetch(`${AGENT_API_URL}/recompile`, {
               method: "POST",
               headers: {
@@ -793,10 +800,10 @@ app.post(
               }),
             });
 
-            logger.info('Recompile response received', {
+            logger.info("Recompile response received", {
               botId,
               status: compileResponse.status,
-              ok: compileResponse.ok
+              ok: compileResponse.ok,
             });
 
             if (!compileResponse.ok) {
@@ -814,7 +821,7 @@ app.post(
               message: `Codegen started: ${compileResponseJson.message}`,
             });
           } else {
-            logger.info('Starting prepare for new bot', { botId });
+            logger.info("Starting prepare for new bot", { botId });
             const prepareResponse = await fetch(`${AGENT_API_URL}/prepare`, {
               method: "POST",
               headers: {
@@ -828,10 +835,10 @@ app.post(
             });
 
             if (!prepareResponse.ok) {
-              logger.error('Prepare request failed', {
+              logger.error("Prepare request failed", {
                 botId,
                 status: prepareResponse.status,
-                statusText: prepareResponse.statusText
+                statusText: prepareResponse.statusText,
               });
               throw new Error(
                 `HTTP error in /prepare, status: ${prepareResponse.status}`,
@@ -847,11 +854,11 @@ app.post(
               };
             } = await prepareResponse.json();
 
-            logger.info('Prepare response received', {
+            logger.info("Prepare response received", {
               botId,
               status: prepareResponseJson.status,
               hasReasoning: !!prepareResponseJson.metadata.reasoning,
-              hasTypespec: !!prepareResponseJson.metadata.typespec
+              hasTypespec: !!prepareResponseJson.metadata.typespec,
             });
 
             await db
@@ -860,7 +867,7 @@ app.post(
                 typespecSchema: prepareResponseJson.metadata.typespec,
               })
               .where(eq(chatbots.id, botId));
-            logger.info('Updated bot typespec schema', { botId });
+            logger.info("Updated bot typespec schema", { botId });
 
             if (prepareResponseJson.status === "success") {
               await db
@@ -869,7 +876,7 @@ app.post(
                   receivedSuccess: true,
                 })
                 .where(eq(chatbots.id, botId));
-              logger.info('Marked bot as received success', { botId });
+              logger.info("Marked bot as received success", { botId });
             }
 
             await db.insert(chatbotPrompts).values({
@@ -878,17 +885,17 @@ app.post(
               chatbotId: botId,
               kind: "agent",
             });
-            logger.info('Inserted agent reasoning prompt', { botId });
+            logger.info("Inserted agent reasoning prompt", { botId });
 
             // Deploy an under-construction page to the fly app
             const underConstructionImage =
               "registry.fly.io/under-construction:deployment-01JQ4JD8TKSW37KP9MR44B3DNB";
             const flyAppName = `app-${botId}`;
 
-            logger.info('Deploying under-construction page', {
+            logger.info("Deploying under-construction page", {
               botId,
               flyAppName,
-              image: underConstructionImage
+              image: underConstructionImage,
             });
 
             try {
@@ -896,14 +903,14 @@ app.post(
                 `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80`,
                 { stdio: "inherit" },
               );
-              logger.info('Successfully deployed under-construction page', {
+              logger.info("Successfully deployed under-construction page", {
                 botId,
-                flyAppName
+                flyAppName,
               });
             } catch (error) {
-              logger.error('Error deploying under-construction page', {
+              logger.error("Error deploying under-construction page", {
                 botId,
-                error
+                error,
               });
               return reply.send({
                 newBot: { id: botId },
@@ -922,19 +929,19 @@ app.post(
           }
         }
       } catch (error) {
-        logger.error('Error compiling bot', { 
-          botId, 
+        logger.error("Error compiling bot", {
+          botId,
           error,
-          errorMessage: error instanceof Error ? error.message : String(error)
+          errorMessage: error instanceof Error ? error.message : String(error),
         });
         return reply
           .status(400)
           .send({ error: `Failed to compile bot: ${error}` });
       }
     } catch (error) {
-      logger.error('Error generating bot', { 
+      logger.error("Error generating bot", {
         error,
-        errorMessage: error instanceof Error ? error.message : String(error)
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       return reply
         .status(400)
@@ -943,16 +950,19 @@ app.post(
   },
 );
 
-const start = async () => {
+export const start = async () => {
   try {
-    await app.listen({ host: "0.0.0.0", port: 4444 });
-    logger.info('Server started', { 
-      url: 'http://localhost:4444'
+    const server = await app.listen({ port: 4444, host: "0.0.0.0" });
+    logger.info("Server started", {
+      url: "http://localhost:4444",
     });
+    return server;
   } catch (err) {
-    logger.error('Server failed to start', { error: err });
+    logger.error("Server failed to start", { error: err });
     process.exit(1);
   }
 };
 
-start();
+if (process.env.NODE_ENV !== "test") {
+  start();
+}

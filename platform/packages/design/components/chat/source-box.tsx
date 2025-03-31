@@ -83,9 +83,7 @@ export function SourceBoxList(props: {
 
   return (
     <div
-      className={`flex flex-nowrap overflow-x-auto gap-2 justify-start w-full min-w-0 cursor-grab active:cursor-grabbing select-none pb-4 ${
-        props.className
-      }`}
+      className={`flex flex-nowrap overflow-x-auto gap-2 justify-start w-full min-w-0 cursor-grab active:cursor-grabbing select-none pb-4 ${props.className}`}
       style={{ WebkitOverflowScrolling: "touch" }}
       onMouseDown={(e) => {
         if (window.innerWidth >= 768) return; // Only enable drag scroll on mobile
