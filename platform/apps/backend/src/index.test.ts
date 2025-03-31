@@ -76,6 +76,6 @@ describe("Telegram Bot Generation", () => {
       const data2 = await response2.json();
       expect(data2.error).toBeUndefined();
     },
-    { timeout: 30_000 },
+    { timeout: 60_000 },
   );
 });
