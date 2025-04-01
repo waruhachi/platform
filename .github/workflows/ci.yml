@@ -58,4 +58,5 @@ jobs:
           DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY: ${{ secrets.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY }}
           DEPLOYED_BOT_PERPLEXITY_API_KEY: ${{ secrets.DEPLOYED_BOT_PERPLEXITY_API_KEY }}
           DEPLOYED_BOT_PICA_SECRET_KEY: ${{ secrets.DEPLOYED_BOT_PICA_SECRET_KEY }}
+          NODE_ENV: test
         run: bun test

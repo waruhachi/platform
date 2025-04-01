@@ -43,6 +43,8 @@ config({ path: ".env.local" });
 let flyBinary: string;
 if (process.env.NODE_ENV === "production") {
   flyBinary = "/root/.fly/bin/fly";
+} else if (process.env.NODE_ENV === "test") {
+  flyBinary = "/home/runner/.fly/bin/flyctl";
 } else {
   flyBinary = "fly";
 }
