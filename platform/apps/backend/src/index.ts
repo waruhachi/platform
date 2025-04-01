@@ -40,13 +40,15 @@ const logger = winston.createLogger({
 
 config({ path: ".env.local" });
 
-let flyBinary: string;
-if (process.env.NODE_ENV === "production") {
-  flyBinary = "/root/.fly/bin/fly";
-} else if (process.env.NODE_ENV === "test") {
-  flyBinary = "/home/runner/.fly/bin/flyctl";
-} else {
-  flyBinary = "fly";
+// Detects the fly binary in the system (could be just `fly`, could be `/root/.fly/bin/fly` or `/home/runner/.fly/bin/fly`) by checking for the presence of these binaries.
+function detectFlyBinary() {
+  if (fs.existsSync("/root/.fly/bin/fly")) {
+    return "/root/.fly/bin/fly";
+  } else if (fs.existsSync("/home/runner/.fly/bin/fly")) {
+    return "/home/runner/.fly/bin/fly";
+  } else {
+    return "fly";
+  }
 }
 
 const s3Client = new S3Client({
@@ -345,7 +347,7 @@ node_modules
 
   try {
     execSync(
-      `${flyBinary} apps destroy ${flyAppName} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
+      `${detectFlyBinary} apps destroy ${flyAppName} --yes --access-token '${process.env.FLY_IO_TOKEN!}' || true`,
       {
         stdio: "inherit",
         cwd: packageJsonDirectory,
@@ -367,7 +369,7 @@ node_modules
 
   logger.info("Starting fly launch", { flyAppName });
   execSync(
-    `${flyBinary} launch -y ${envVarsString} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
+    `${detectFlyBinary()} launch -y ${envVarsString} --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db --no-deploy --name '${flyAppName}'`,
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
   logger.info("Fly launch completed", { flyAppName });
@@ -393,7 +395,7 @@ node_modules
 
   logger.info("Starting fly deployment", { flyAppName });
   execSync(
-    `${flyBinary} deploy --yes --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
+    `${detectFlyBinary()} deploy --yes --ha=false --max-concurrent 1 --access-token '${process.env.FLY_IO_TOKEN!}'`,
     {
       cwd: packageJsonDirectory,
       stdio: "inherit",
@@ -913,7 +915,7 @@ app.post(
 
             try {
               execSync(
-                `${flyBinary} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80 --dockerignore-from-gitignore`,
+                `${detectFlyBinary()} launch --yes --access-token '${process.env.FLY_IO_TOKEN!}' --max-concurrent 1 --ha=false --no-db  --name '${flyAppName}' --image ${underConstructionImage} --internal-port 80 --dockerignore-from-gitignore`,
                 { stdio: "inherit" },
               );
               logger.info("Successfully deployed under-construction page", {
