@@ -82,7 +82,7 @@ export const GenerateStep = ({ onSuccess }) => {
         onSuccess,
     ]);
     if (!chatbot)
-        return null;
+        return _jsx(Text, { children: "Bot not found" });
     if (isWaitingForSpecsApproval) {
         return (_jsxs(Box, { flexDirection: "column", children: [_jsx(StepHeader, { label: "Review Specifications", progress: 0.8 }), _jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, marginBottom: 1, children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { color: "blue", bold: true, children: "Generated Chatbot Specification" }) }), _jsx(Text, { children: chatbotMessageHistory['specs'].at(-1) })] }), _jsx(Box, { marginBottom: 1, children: _jsx(Text, { children: "Would you like to proceed with deploying this chatbot with these specifications?" }) }), _jsxs(Box, { marginTop: 1, gap: 1, children: [isGeneratingChatbot && _jsx(Spinner, {}), _jsx(FreeText, { question: "Type 'yes' to deploy or provide feedback to modify the specifications:", placeholder: "e.g., yes or I want to add more features...", onSubmit: () => {
                                 generateChatbot({ ...config, botId: chatbot.id });

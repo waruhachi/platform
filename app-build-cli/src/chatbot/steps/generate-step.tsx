@@ -105,7 +105,7 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
     onSuccess,
   ]);
 
-  if (!chatbot) return null;
+  if (!chatbot) return <Text>Bot not found</Text>;
 
   if (isWaitingForSpecsApproval) {
     return (

@@ -23,6 +23,9 @@ function StepContent() {
             ...config,
             runMode: runMode,
         };
+        setConfig(newConfig);
+        addToHistory(steps.runMode.question, steps.runMode.options.find((opt) => opt.value === runMode)?.label ||
+            runMode);
         safeNavigate({
             path: '/chatbot/create',
             searchParams: { step: steps.runMode.nextStep(newConfig) },
@@ -54,7 +57,10 @@ function StepContent() {
         addMessageToChatbotHistory('specs', botSpecs.message);
         safeNavigate({
             path: '/chatbot/create',
-            searchParams: { step: steps.generateChatbotSpecs.nextStep },
+            searchParams: {
+                step: steps.generateChatbotSpecs.nextStep,
+                chatbotId: botSpecs.chatbotId,
+            },
         });
     };
     const handleGenerateBotSuccess = (bot) => {
