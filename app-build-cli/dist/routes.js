@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { createSearchParams, MemoryRouter, Route, Routes, useNavigate, useSearchParams, } from 'react-router';
+import { createSearchParams, MemoryRouter, Route, Routes, useNavigate, useParams, useSearchParams, } from 'react-router';
 import queryString from 'query-string';
 import { ChatbotsListScreen } from './chatbot/chatbots-list-screen.js';
 import { CreateChatbotScreen } from './chatbot/create-chatbot-screen.js';
@@ -24,17 +24,25 @@ const ROUTES_DEFINITIONS = [
         },
     },
     {
-        path: '/chatbot/list',
+        path: '/chatbots',
         element: _jsx(ChatbotsListScreen, {}),
+    },
+    {
+        path: '/chatbots/:chatbotId',
+        element: _jsx(ChatbotHomeScreen, {}),
     },
 ];
 export function useSafeNavigate() {
     const navigate = useNavigate();
-    const safeNavigate = useCallback((path, params) => {
+    const safeNavigate = useCallback(({ path, params, searchParams, }) => {
+        const pathWithParams = path.replace(/:(\w+)/g, 
+        // @ts-expect-error - not worth it to fix
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (match, param) => params?.[param] ?? match);
         void navigate({
-            pathname: path,
-            search: params
-                ? createSearchParams(params).toString()
+            pathname: pathWithParams,
+            search: searchParams
+                ? createSearchParams(searchParams).toString()
                 : undefined,
         });
     }, [navigate]);
@@ -79,7 +87,12 @@ export function useSafeSearchParams(route) {
     }, [safeSearchParams, setURLSearchParams]);
     return [safeSearchParams, setSafeSearchParams];
 }
+// just for type inference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useRouteParams(_route) {
+    return useParams();
+}
 export function AppRouter() {
-    return (_jsxs(MemoryRouter, { children: [_jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(ChatbotHomeScreen, {}) }), _jsx(Route, { path: "chatbot/create", element: _jsx(CreateChatbotScreen, {}) }), _jsx(Route, { path: "chatbot/list", element: _jsx(ChatbotsListScreen, {}) })] }), _jsx(ShortcutHints, {})] }));
+    return (_jsxs(MemoryRouter, { children: [_jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(ChatbotHomeScreen, {}) }), _jsx(Route, { path: "chatbot/create", element: _jsx(CreateChatbotScreen, {}) }), _jsx(Route, { path: "chatbots", element: _jsx(ChatbotsListScreen, {}) }), _jsx(Route, { path: "chatbot/:chatbotId", element: _jsx(ChatbotHomeScreen, {}) })] }), _jsx(ShortcutHints, {})] }));
 }
 //# sourceMappingURL=routes.js.map

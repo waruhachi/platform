@@ -23,15 +23,19 @@ function StepContent() {
             ...config,
             runMode: runMode,
         };
-        safeNavigate('/chatbot/create', {
-            step: steps.runMode.nextStep(newConfig),
+        safeNavigate({
+            path: '/chatbot/create',
+            searchParams: { step: steps.runMode.nextStep(newConfig) },
         });
     };
     const handleTokenSubmit = (token) => {
         setConfig({ telegramBotToken: token });
         addToHistory(steps.token.question, token.slice(0, 8) + '...' // Show only part of the token for security
         );
-        safeNavigate('/chatbot/create', { step: steps.token.nextStep });
+        safeNavigate({
+            path: '/chatbot/create',
+            searchParams: { step: steps.token.nextStep },
+        });
     };
     const handleEnvironmentSubmit = (environment) => {
         setConfig({
@@ -39,19 +43,26 @@ function StepContent() {
         });
         addToHistory(steps.environment.question, steps.environment.options.find((opt) => opt.value === environment)
             ?.label || environment);
-        safeNavigate('/chatbot/create', { step: steps.environment.nextStep });
+        safeNavigate({
+            path: '/chatbot/create',
+            searchParams: { step: steps.environment.nextStep },
+        });
     };
     const handleGenerateBotSpecsSuccess = (botSpecs, prompt) => {
         setConfig({ prompt });
         addToHistory('What kind of chatbot would you like to create?', prompt);
         addMessageToChatbotHistory('specs', botSpecs.message);
-        safeNavigate('/chatbot/create', {
-            step: steps.generateChatbotSpecs.nextStep,
+        safeNavigate({
+            path: '/chatbot/create',
+            searchParams: { step: steps.generateChatbotSpecs.nextStep },
         });
     };
     const handleGenerateBotSuccess = (bot) => {
         addMessageToChatbotHistory('generation', bot.message);
-        safeNavigate('/chatbot/create', { step: steps.generateChatbot.nextStep });
+        safeNavigate({
+            path: '/chatbot/create',
+            searchParams: { step: steps.generateChatbot.nextStep },
+        });
     };
     switch (step) {
         case 'token':

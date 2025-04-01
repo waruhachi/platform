@@ -5,6 +5,7 @@ import { generateChatbot } from './chatbot.js';
 import { useCreateChatbotWizardStore } from './store.js';
 import { useListChatBots } from './use-chatbot.js';
 import { Select } from '../components/shared/select.js';
+import { useRouteParams, useSafeNavigate } from '../routes.js';
 
 type SelectItem = {
   label: string;
@@ -52,8 +53,9 @@ const formatBotLabel = (bot: {
 };
 
 export const ChatbotsListScreen = () => {
-  const [selectedChatbotId, setSelectedChatbotId] = useState<string>('');
   const [iterationPrompt, setIterationPrompt] = useState('');
+  const { safeNavigate } = useSafeNavigate();
+  const { chatbotId } = useRouteParams('/chatbots/:chatbotId');
 
   const { data: chatbots, isLoading, error } = useListChatBots();
 
@@ -62,14 +64,14 @@ export const ChatbotsListScreen = () => {
   );
 
   const handleIterationSubmit = async (text: string) => {
-    if (!selectedChatbotId || !text) return;
+    if (!chatbotId || !text) return;
 
     await generateChatbot({
       prompt: text,
       telegramBotToken: '',
       useStaging: false,
       runMode: 'telegram',
-      botId: selectedChatbotId,
+      botId: chatbotId,
     });
 
     addMessageToChatbotHistory('iteration', text);
@@ -106,7 +108,7 @@ export const ChatbotsListScreen = () => {
     value: bot.id,
   }));
 
-  const selectedBot = chatbots.data.find((bot) => bot.id === selectedChatbotId);
+  const selectedBot = chatbots.data.find((bot) => bot.id === chatbotId);
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -117,7 +119,12 @@ export const ChatbotsListScreen = () => {
       <Select
         question="Select a chatbot to iterate on:"
         options={items}
-        onSubmit={(item) => setSelectedChatbotId(item)}
+        onSubmit={(item) => {
+          safeNavigate({
+            path: '/chatbots/:chatbotId',
+            params: { chatbotId: item },
+          });
+        }}
       />
 
       {selectedBot && (

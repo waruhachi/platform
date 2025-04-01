@@ -4,6 +4,7 @@ import {
   Route,
   Routes,
   useNavigate,
+  useParams,
   useSearchParams,
   type URLSearchParamsInit,
 } from 'react-router';
@@ -18,8 +19,8 @@ import { steps, type StepType } from './chatbot/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 
+export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
-type RoutePath = RouterDefinition[number]['path'];
 
 type RouteType = {
   path: string;
@@ -34,12 +35,27 @@ type RouteDefinition<T extends RoutePath> = Extract<
 
 type RouteWithSearchParams<T extends RoutePath> = Extract<
   RouteDefinition<T>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { searchParams: any }
 >;
 
 type SearchParamsObject<T extends RoutePath> = z.infer<
   ZodObject<RouteWithSearchParams<T>['searchParams']>
+>;
+
+type ExtractRouteParams<
+  T extends string,
+  RouteParams extends Array<any> = []
+> = T extends `${string}/:${infer Param}/${infer Rest}`
+  ? // string/:orgID/string
+    [...RouteParams, Param, ...ExtractRouteParams<Rest>]
+  : // string/:workspaceID | :workspaceID
+  T extends `${string}:${infer Param2}`
+  ? [...RouteParams, Param2]
+  : RouteParams;
+
+type RouteParams<T extends RoutePath> = Record<
+  ExtractRouteParams<T>[number],
+  string
 >;
 
 const ROUTES_DEFINITIONS = [
@@ -58,8 +74,12 @@ const ROUTES_DEFINITIONS = [
     },
   },
   {
-    path: '/chatbot/list' as const,
+    path: '/chatbots' as const,
     element: <ChatbotsListScreen />,
+  },
+  {
+    path: '/chatbots/:chatbotId' as const,
+    element: <ChatbotHomeScreen />,
   },
 ] satisfies Array<RouteType>;
 
@@ -67,11 +87,27 @@ export function useSafeNavigate() {
   const navigate = useNavigate();
 
   const safeNavigate = useCallback(
-    <T extends RoutePath>(path: T, params?: SearchParamsObject<T>) => {
+    <T extends RoutePath>({
+      path,
+      params,
+      searchParams,
+    }: {
+      path: T;
+      params?: RouteParams<T>;
+      searchParams?: SearchParamsObject<T>;
+    }) => {
+      const pathWithParams = path.replace(
+        /:(\w+)/g,
+
+        // @ts-expect-error - not worth it to fix
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (match, param) => params?.[param] ?? match
+      );
+
       void navigate({
-        pathname: path,
-        search: params
-          ? createSearchParams(params as URLSearchParamsInit).toString()
+        pathname: pathWithParams,
+        search: searchParams
+          ? createSearchParams(searchParams as URLSearchParamsInit).toString()
           : undefined,
       });
     },
@@ -145,13 +181,20 @@ export function useSafeSearchParams<T extends RoutePath>(route: T) {
   return [safeSearchParams, setSafeSearchParams] as const;
 }
 
+// just for type inference
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function useRouteParams<T extends RoutePath>(_route: T) {
+  return useParams<RouteParams<T>>();
+}
+
 export function AppRouter() {
   return (
     <MemoryRouter>
       <Routes>
         <Route path="/" element={<ChatbotHomeScreen />} />
         <Route path="chatbot/create" element={<CreateChatbotScreen />} />
-        <Route path="chatbot/list" element={<ChatbotsListScreen />} />
+        <Route path="chatbots" element={<ChatbotsListScreen />} />
+        <Route path="chatbot/:chatbotId" element={<ChatbotHomeScreen />} />
       </Routes>
       <ShortcutHints />
     </MemoryRouter>
