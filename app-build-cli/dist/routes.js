@@ -8,6 +8,7 @@ import { z, ZodObject, ZodType } from 'zod';
 import { steps } from './chatbot/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
+import { ChatbotDetails } from './chatbot/chatbot-details.js';
 const ROUTES_DEFINITIONS = [
     {
         path: '/',
@@ -29,7 +30,7 @@ const ROUTES_DEFINITIONS = [
     },
     {
         path: '/chatbots/:chatbotId',
-        element: _jsx(ChatbotHomeScreen, {}),
+        element: _jsx(ChatbotDetails, {}),
     },
 ];
 export function useSafeNavigate() {
@@ -93,6 +94,6 @@ export function useRouteParams(_route) {
     return useParams();
 }
 export function AppRouter() {
-    return (_jsxs(MemoryRouter, { children: [_jsxs(Routes, { children: [_jsx(Route, { path: "/", element: _jsx(ChatbotHomeScreen, {}) }), _jsx(Route, { path: "chatbot/create", element: _jsx(CreateChatbotScreen, {}) }), _jsx(Route, { path: "chatbots", element: _jsx(ChatbotsListScreen, {}) }), _jsx(Route, { path: "chatbot/:chatbotId", element: _jsx(ChatbotHomeScreen, {}) })] }), _jsx(ShortcutHints, {})] }));
+    return (_jsxs(MemoryRouter, { children: [_jsx(Routes, { children: ROUTES_DEFINITIONS.map((route) => (_jsx(Route, { path: route.path, element: route.element }, route.path))) }), _jsx(ShortcutHints, {})] }));
 }
 //# sourceMappingURL=routes.js.map

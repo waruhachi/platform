@@ -1,18 +1,14 @@
 import { Box, Text } from 'ink';
-import TextInput from 'ink-text-input';
-import { useState } from 'react';
-import { generateChatbot } from './chatbot.js';
-import { useCreateChatbotWizardStore } from './store.js';
 import { useListChatBots } from './use-chatbot.js';
 import { Select } from '../components/shared/select.js';
-import { useRouteParams, useSafeNavigate } from '../routes.js';
+import { useSafeNavigate } from '../routes.js';
 
 type SelectItem = {
   label: string;
   value: string;
 };
 
-const getStatusEmoji = (status: string): string => {
+export const getStatusEmoji = (status: string): string => {
   switch (status) {
     case 'deployed':
       return '🟢';
@@ -25,7 +21,7 @@ const getStatusEmoji = (status: string): string => {
   }
 };
 
-const getStatusColor = (status: string): string => {
+export const getStatusColor = (status: string): string => {
   switch (status) {
     case 'deployed':
       return 'green';
@@ -53,30 +49,8 @@ const formatBotLabel = (bot: {
 };
 
 export const ChatbotsListScreen = () => {
-  const [iterationPrompt, setIterationPrompt] = useState('');
   const { safeNavigate } = useSafeNavigate();
-  const { chatbotId } = useRouteParams('/chatbots/:chatbotId');
-
   const { data: chatbots, isLoading, error } = useListChatBots();
-
-  const addMessageToChatbotHistory = useCreateChatbotWizardStore(
-    (state) => state.addMessageToChatbotHistory
-  );
-
-  const handleIterationSubmit = async (text: string) => {
-    if (!chatbotId || !text) return;
-
-    await generateChatbot({
-      prompt: text,
-      telegramBotToken: '',
-      useStaging: false,
-      runMode: 'telegram',
-      botId: chatbotId,
-    });
-
-    addMessageToChatbotHistory('iteration', text);
-    setIterationPrompt('');
-  };
 
   if (isLoading) {
     return (
@@ -108,8 +82,6 @@ export const ChatbotsListScreen = () => {
     value: bot.id,
   }));
 
-  const selectedBot = chatbots.data.find((bot) => bot.id === chatbotId);
-
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
@@ -126,66 +98,6 @@ export const ChatbotsListScreen = () => {
           });
         }}
       />
-
-      {selectedBot && (
-        <Box flexDirection="column" marginTop={1} padding={1}>
-          <Box borderStyle="single" paddingX={1} flexDirection="column" gap={1}>
-            <Box>
-              <Text bold>📋 Bot Details</Text>
-            </Box>
-
-            <Box gap={2}>
-              <Box width={12}>
-                <Text>Name:</Text>
-              </Box>
-              <Text>{selectedBot.name}</Text>
-            </Box>
-
-            <Box gap={2}>
-              <Box width={12}>
-                <Text>Status:</Text>
-              </Box>
-              <Box>
-                <Text>
-                  {getStatusEmoji(selectedBot.deployStatus)}{' '}
-                  <Text color={getStatusColor(selectedBot.deployStatus)}>
-                    {selectedBot.deployStatus}
-                  </Text>
-                </Text>
-              </Box>
-            </Box>
-
-            <Box gap={2}>
-              <Box width={12}>
-                <Text>Mode:</Text>
-              </Box>
-              <Text>
-                {selectedBot.runMode === 'telegram'
-                  ? '📱 Telegram'
-                  : '🌐 HTTP Server'}
-              </Text>
-            </Box>
-
-            {selectedBot.recompileInProgress && (
-              <Box>
-                <Text color="yellow">⚡️ Bot is recompiling...</Text>
-              </Box>
-            )}
-          </Box>
-
-          <Box flexDirection="column" marginTop={1}>
-            <Text bold>✨ Iteration Prompt</Text>
-            <Box marginTop={1}>
-              <TextInput
-                value={iterationPrompt}
-                onChange={setIterationPrompt}
-                onSubmit={(text: string) => void handleIterationSubmit(text)}
-                placeholder="Enter your prompt and press Enter"
-              />
-            </Box>
-          </Box>
-        </Box>
-      )}
     </Box>
   );
 };

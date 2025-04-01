@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppRouter } from './routes.js';
-import { ShortcutHints } from './components/ui/shortcut-hints.js';
 
 const queryClient = new QueryClient();
 

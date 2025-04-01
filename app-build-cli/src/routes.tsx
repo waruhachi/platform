@@ -18,6 +18,7 @@ import { z, ZodObject, ZodType } from 'zod';
 import { steps, type StepType } from './chatbot/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
+import { ChatbotDetails } from './chatbot/chatbot-details.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
@@ -79,7 +80,7 @@ const ROUTES_DEFINITIONS = [
   },
   {
     path: '/chatbots/:chatbotId' as const,
-    element: <ChatbotHomeScreen />,
+    element: <ChatbotDetails />,
   },
 ] satisfies Array<RouteType>;
 
@@ -191,10 +192,9 @@ export function AppRouter() {
   return (
     <MemoryRouter>
       <Routes>
-        <Route path="/" element={<ChatbotHomeScreen />} />
-        <Route path="chatbot/create" element={<CreateChatbotScreen />} />
-        <Route path="chatbots" element={<ChatbotsListScreen />} />
-        <Route path="chatbot/:chatbotId" element={<ChatbotHomeScreen />} />
+        {ROUTES_DEFINITIONS.map((route) => (
+          <Route key={route.path} path={route.path} element={route.element} />
+        ))}
       </Routes>
       <ShortcutHints />
     </MemoryRouter>
