@@ -423,6 +423,7 @@ node_modules
 
 export const app = fastify({
   logger: true,
+  disableRequestLogging: true,
 });
 
 const db = drizzle(process.env.DATABASE_URL!);
