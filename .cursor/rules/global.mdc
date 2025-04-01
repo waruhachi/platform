@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Global rules
+
+- Follow these rules when generating new code/assets [project-ai-rules.md](mdc:app-build-cli/project-ai-rules.md)
