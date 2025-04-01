@@ -3,7 +3,7 @@ import { start as startBackend, app as backendApp } from "./index";
 import {
   start as startMockedAgent,
   fastify as mockedAgentApp,
-} from "../../../../mocked-agent/index";
+} from "../../../mocked-agent/index";
 import { config } from "dotenv";
 
 config();
