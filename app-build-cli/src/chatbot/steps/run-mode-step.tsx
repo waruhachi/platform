@@ -1,6 +1,6 @@
 import { Box } from 'ink';
-import { Select } from '../../components/shared/Select.js';
-import { StepHeader } from '../../components/ui/StepHeader.js';
+import { Select } from '../../components/shared/select.js';
+import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 
 type RunModeStepProps = {

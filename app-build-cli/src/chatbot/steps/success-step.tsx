@@ -1,7 +1,7 @@
 import { Box } from 'ink';
-import { StepHeader } from '../../components/ui/StepHeader.js';
-import { SuccessMessage } from '../../components/ui/SuccessMessage.js';
-import { useChatbot } from '../useChatbot.js';
+import { StepHeader } from '../../components/ui/step-header.js';
+import { SuccessMessage } from '../../components/ui/success-message.js';
+import { useChatbot } from '../use-chatbot.js';
 
 type SuccessStepProps = {
   chatbotId: string;

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Box, Text } from 'ink';
-import { FreeText } from './shared/FreeText.js';
-import { MultiSelect } from './shared/MultiSelect.js';
-import { Select } from './shared/Select.js';
+import { FreeText } from './shared/free-text.js';
+import { MultiSelect } from './shared/multi-select.js';
+import { Select } from './shared/select.js';
 import { type SelectItem } from './shared/types.js';
 
 type AppIdea = {

@@ -1,7 +1,7 @@
-import { FreeText, type FreeTextProps } from './FreeText.js';
-import ConfirmPrompt, { type ConfirmPromptProps } from './ConfirmPrompt.js';
-import { Select, type SelectProps } from './Select.js';
-import { MultiSelect, type MultiSelectProps } from './MultiSelect.js';
+import { FreeText, type FreeTextProps } from './free-text.js';
+import ConfirmPrompt, { type ConfirmPromptProps } from './confirm-prompt.js';
+import { Select, type SelectProps } from './select.js';
+import { MultiSelect, type MultiSelectProps } from './multi-select.js';
 
 type BuildingBlockProps =
   | ({ type: 'free-text' } & FreeTextProps)

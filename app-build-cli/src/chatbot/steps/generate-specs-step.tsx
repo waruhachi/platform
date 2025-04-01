@@ -1,8 +1,8 @@
 import { Box, Text } from 'ink';
 import { Spinner } from '@inkjs/ui';
-import { FreeText } from '../../components/shared/FreeText.js';
-import { StepHeader } from '../../components/ui/StepHeader.js';
-import { useGenerateChatbotSpecs } from '../useChatbot.js';
+import { FreeText } from '../../components/shared/free-text.js';
+import { StepHeader } from '../../components/ui/step-header.js';
+import { useGenerateChatbotSpecs } from '../use-chatbot.js';
 import { useCreateChatbotWizardStore } from '../store.js';
 import { type ChatbotGenerationResult } from '../chatbot.js';
 

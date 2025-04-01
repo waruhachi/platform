@@ -1,5 +1,5 @@
 import { Box, Text } from 'ink';
-import { ProgressBar } from './ProgressBar.js';
+import { ProgressBar } from './progress-bar.js';
 
 type StepHeaderProps = {
   label: string;

@@ -1,15 +1,15 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Text } from 'ink';
-import { EnvironmentStep } from './steps/EnvironmentStep.js';
-import { GenerateSpecsStep } from './steps/GenerateSpecsStep.js';
-import { GenerateStep } from './steps/GenerateStep.js';
-import { SuccessStep } from './steps/SuccessStep.js';
-import { TokenStep } from './steps/TokenStep.js';
+import { EnvironmentStep } from './steps/environment-step.js';
+import { GenerateSpecsStep } from './steps/generate-specs-step.js';
+import { GenerateStep } from './steps/generate-step.js';
+import { SuccessStep } from './steps/success-step.js';
+import { TokenStep } from './steps/token-step.js';
 import { steps } from './steps/steps.js';
-import { Banner } from '../components/ui/Banner.js';
-import { WizardHistory } from '../components/ui/WizardHistory.js';
+import { Banner } from '../components/ui/banner.js';
+import { WizardHistory } from '../components/ui/wizard-history.js';
 import { useCreateChatbotWizardStore, useNavigation } from './store.js';
-import { RunModeStep } from './steps/RunModeStep.js';
+import { RunModeStep } from './steps/run-mode-step.js';
 export const ChatBotFlow = () => {
     return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Banner, {}), _jsx(WizardHistory, {}), _jsx(StepContent, {})] }));
 };

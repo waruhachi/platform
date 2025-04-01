@@ -3,8 +3,8 @@ import TextInput from 'ink-text-input';
 import { useState } from 'react';
 import { generateChatbot } from '../chatbot/chatbot.js';
 import { useCreateChatbotWizardStore } from '../chatbot/store.js';
-import { useListChatBots } from '../chatbot/useChatbot.js';
-import { Select } from './shared/Select.js';
+import { useListChatBots } from '../chatbot/use-chatbot.js';
+import { Select } from './shared/select.js';
 
 type SelectItem = {
   label: string;

@@ -1,6 +1,6 @@
 import { Box } from 'ink';
-import { FreeText } from '../../components/shared/FreeText.js';
-import { StepHeader } from '../../components/ui/StepHeader.js';
+import { FreeText } from '../../components/shared/free-text.js';
+import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 
 type TokenStepProps = {

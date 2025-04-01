@@ -3,4 +3,4 @@ import SyntaxHighlight from 'ink-syntax-highlight';
 export const Code = ({ value, language }) => {
     return _jsx(SyntaxHighlight, { language: language, code: value || ' ' });
 };
-//# sourceMappingURL=Code.js.map
+//# sourceMappingURL=code.js.map

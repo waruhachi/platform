@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { ChatBotFlow } from './chatbot/create-chatbot.js';
-import { ChatbotList } from './components/ChatbotList.js';
+import { ChatbotList } from './components/chatbot-list.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Select } from './components/shared/Select.js';
-import { ShortcutHints } from './components/ui/ShortcutHints.js';
+import { Select } from './components/shared/select.js';
+import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { useNavigation } from './chatbot/store.js';
 
 const queryClient = new QueryClient();
