@@ -7,6 +7,7 @@ import { ProgressSteps } from '../../components/ui/progress-steps.js';
 import { type ChatbotGenerationResult } from '../chatbot.js';
 import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
 import { useCreateChatbotWizardStore } from '../store.js';
+import { useSafeSearchParams } from '../../routes.js';
 
 const buildSteps = [
   {
@@ -45,7 +46,7 @@ export type GenerateStepProps = {
 
 export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
   const config = useCreateChatbotWizardStore((s) => s.config);
-  const chatbotId = useCreateChatbotWizardStore((s) => s.currentChatbotId);
+  const [{ chatbotId }] = useSafeSearchParams('/chatbot/create');
 
   const chatbotMessageHistory = useCreateChatbotWizardStore(
     (s) => s.chatbotMessageHistory

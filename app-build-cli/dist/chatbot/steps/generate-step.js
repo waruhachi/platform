@@ -8,6 +8,7 @@ import { ProgressSteps } from '../../components/ui/progress-steps.js';
 import {} from '../chatbot.js';
 import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
 import { useCreateChatbotWizardStore } from '../store.js';
+import { useSafeSearchParams } from '../../routes.js';
 const buildSteps = [
     {
         message: '🏗️  Generating business model and use cases...',
@@ -40,7 +41,7 @@ const buildSteps = [
 ];
 export const GenerateStep = ({ onSuccess }) => {
     const config = useCreateChatbotWizardStore((s) => s.config);
-    const chatbotId = useCreateChatbotWizardStore((s) => s.currentChatbotId);
+    const [{ chatbotId }] = useSafeSearchParams('/chatbot/create');
     const chatbotMessageHistory = useCreateChatbotWizardStore((s) => s.chatbotMessageHistory);
     const [currentStep, setCurrentStep] = useState(0);
     const { mutate: generateChatbot, isPending: isGeneratingChatbot, error: generateChatbotError, data: generateChatbotData, } = useGenerateChatbot();

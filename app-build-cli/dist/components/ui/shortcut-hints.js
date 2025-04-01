@@ -1,8 +1,8 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { Box, Text, useInput } from 'ink';
-import { useNavigation } from '../../chatbot/store.js';
+import { useSafeNavigate } from '../../routes.js';
 export const ShortcutHints = () => {
-    const { goBack } = useNavigation();
+    const { goBack } = useSafeNavigate();
     useInput((input, key) => {
         if (key.ctrl && input === 'b') {
             goBack();

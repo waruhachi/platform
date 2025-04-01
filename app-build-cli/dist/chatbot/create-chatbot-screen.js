@@ -8,29 +8,30 @@ import { TokenStep } from './steps/token-step.js';
 import { steps } from './steps/steps.js';
 import { Banner } from '../components/ui/banner.js';
 import { WizardHistory } from '../components/ui/wizard-history.js';
-import { useCreateChatbotWizardStore, useNavigation } from './store.js';
+import { useCreateChatbotWizardStore } from './store.js';
 import { RunModeStep } from './steps/run-mode-step.js';
+import { useSafeNavigate, useSafeSearchParams } from '../routes.js';
 export const CreateChatbotScreen = () => {
     return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Banner, {}), _jsx(WizardHistory, {}), _jsx(StepContent, {})] }));
 };
 function StepContent() {
-    const { config, setConfig, addToHistory, currentChatbotId, addMessageToChatbotHistory, } = useCreateChatbotWizardStore();
-    const { currentNavigationState, navigate } = useNavigation();
+    const { config, setConfig, addToHistory, addMessageToChatbotHistory } = useCreateChatbotWizardStore();
+    const { safeNavigate } = useSafeNavigate();
+    const [{ step, chatbotId }] = useSafeSearchParams('/chatbot/create');
     const handleRunModeSubmit = (runMode) => {
         const newConfig = {
             ...config,
             runMode: runMode,
         };
-        setConfig(newConfig);
-        addToHistory(steps.runMode.question, steps.runMode.options.find((opt) => opt.value === runMode)?.label ||
-            runMode);
-        navigate(`chatbot.create.${steps.runMode.nextStep(newConfig)}`);
+        safeNavigate('/chatbot/create', {
+            step: steps.runMode.nextStep(newConfig),
+        });
     };
     const handleTokenSubmit = (token) => {
         setConfig({ telegramBotToken: token });
         addToHistory(steps.token.question, token.slice(0, 8) + '...' // Show only part of the token for security
         );
-        navigate(`chatbot.create.${steps.token.nextStep}`);
+        safeNavigate('/chatbot/create', { step: steps.token.nextStep });
     };
     const handleEnvironmentSubmit = (environment) => {
         setConfig({
@@ -38,37 +39,38 @@ function StepContent() {
         });
         addToHistory(steps.environment.question, steps.environment.options.find((opt) => opt.value === environment)
             ?.label || environment);
-        navigate(`chatbot.create.${steps.environment.nextStep}`);
+        safeNavigate('/chatbot/create', { step: steps.environment.nextStep });
     };
     const handleGenerateBotSpecsSuccess = (botSpecs, prompt) => {
         setConfig({ prompt });
         addToHistory('What kind of chatbot would you like to create?', prompt);
         addMessageToChatbotHistory('specs', botSpecs.message);
-        navigate(`chatbot.create.${steps.generateChatbotSpecs.nextStep}`);
+        safeNavigate('/chatbot/create', {
+            step: steps.generateChatbotSpecs.nextStep,
+        });
     };
     const handleGenerateBotSuccess = (bot) => {
         addMessageToChatbotHistory('generation', bot.message);
-        navigate(`chatbot.create.${steps.generateChatbot.nextStep}`);
+        safeNavigate('/chatbot/create', { step: steps.generateChatbot.nextStep });
     };
-    switch (currentNavigationState) {
-        case 'chatbot.create.token':
+    switch (step) {
+        case 'token':
             return _jsx(TokenStep, { onSubmit: handleTokenSubmit });
-        case 'chatbot.create.environment':
+        case 'environment':
             return _jsx(EnvironmentStep, { onSubmit: handleEnvironmentSubmit });
-        case 'chatbot.create.runMode':
-        case 'chatbot.create':
+        case 'runMode':
             return _jsx(RunModeStep, { onSubmit: handleRunModeSubmit });
-        case 'chatbot.create.generateChatbotSpecs':
+        case 'generateChatbotSpecs':
             return _jsx(GenerateSpecsStep, { onSuccess: handleGenerateBotSpecsSuccess });
-        case 'chatbot.create.generateChatbot':
+        case 'generateChatbot':
             return _jsx(GenerateStep, { onSuccess: handleGenerateBotSuccess });
-        case 'chatbot.create.successGeneration':
-            if (!currentChatbotId) {
+        case 'successGeneration':
+            if (!chatbotId) {
                 return _jsx(Text, { children: "No chatbot ID found" });
             }
-            return _jsx(SuccessStep, { chatbotId: currentChatbotId });
+            return _jsx(SuccessStep, { chatbotId: chatbotId });
         default:
             return null;
     }
 }
-//# sourceMappingURL=create-chatbot.js.map
+//# sourceMappingURL=create-chatbot-screen.js.map

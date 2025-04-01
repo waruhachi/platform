@@ -1,10 +1,10 @@
 import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
 import { useState } from 'react';
-import { generateChatbot } from '../chatbot/chatbot.js';
-import { useCreateChatbotWizardStore } from '../chatbot/store.js';
-import { useListChatBots } from '../chatbot/use-chatbot.js';
-import { Select } from './shared/select.js';
+import { generateChatbot } from './chatbot.js';
+import { useCreateChatbotWizardStore } from './store.js';
+import { useListChatBots } from './use-chatbot.js';
+import { Select } from '../components/shared/select.js';
 
 type SelectItem = {
   label: string;
@@ -51,7 +51,7 @@ const formatBotLabel = (bot: {
   return `${statusEmoji}  ${bot.name}  ${runModeEmoji}`;
 };
 
-export const ChatbotList = () => {
+export const ChatbotsListScreen = () => {
   const [selectedChatbotId, setSelectedChatbotId] = useState<string>('');
   const [iterationPrompt, setIterationPrompt] = useState('');
 

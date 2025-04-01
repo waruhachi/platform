@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, } from '@tanstack/react-query';
 import { generateChatbot, generateChatbotSpec, getChatbot, listChatBots, } from './chatbot.js';
-import { useCreateChatbotWizardStore } from './store.js';
+import { useSafeSearchParams } from '../routes.js';
 const queryKeys = {
     chatbot: (chatbotId) => ['chatbots', chatbotId],
     chatbots: ['chatbots'],
@@ -21,16 +21,13 @@ export const useListChatBots = () => {
 };
 export const useGenerateChatbotSpecs = () => {
     const queryClient = useQueryClient();
-    const setCanGoBack = useCreateChatbotWizardStore((state) => state.setCanGoBack);
-    const setCurrentChatbotId = useCreateChatbotWizardStore((state) => state.setCurrentChatbotId);
+    const [searchParams, setSearchParams] = useSafeSearchParams('/chatbot/create');
     return useMutation({
         mutationFn: (params) => {
-            // Disable going back to the previous step
-            setCanGoBack(false);
             return generateChatbotSpec(params);
         },
         onSuccess: (data) => {
-            setCurrentChatbotId(data.chatbotId);
+            setSearchParams({ ...searchParams, chatbotId: data.chatbotId });
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.chatbot(data.chatbotId),
             });

@@ -14,7 +14,7 @@ import type {
   ChatbotGenerationParams,
   ChatBotSpecsGenerationParams,
 } from './chatbot.js';
-import { useCreateChatbotWizardStore } from './store.js';
+import { useSafeSearchParams } from '../routes.js';
 
 const queryKeys = {
   chatbot: (chatbotId: string) => ['chatbots', chatbotId],
@@ -42,21 +42,15 @@ export const useListChatBots = () => {
 
 export const useGenerateChatbotSpecs = () => {
   const queryClient = useQueryClient();
-  const setCanGoBack = useCreateChatbotWizardStore(
-    (state) => state.setCanGoBack
-  );
-  const setCurrentChatbotId = useCreateChatbotWizardStore(
-    (state) => state.setCurrentChatbotId
-  );
+  const [searchParams, setSearchParams] =
+    useSafeSearchParams('/chatbot/create');
 
   return useMutation({
     mutationFn: (params: ChatBotSpecsGenerationParams) => {
-      // Disable going back to the previous step
-      setCanGoBack(false);
       return generateChatbotSpec(params);
     },
     onSuccess: (data) => {
-      setCurrentChatbotId(data.chatbotId);
+      setSearchParams({ ...searchParams, chatbotId: data.chatbotId });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.chatbot(data.chatbotId),
       });

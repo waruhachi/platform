@@ -7,11 +7,12 @@ import { TokenStep } from './steps/token-step.js';
 import { steps } from './steps/steps.js';
 import { Banner } from '../components/ui/banner.js';
 import { WizardHistory } from '../components/ui/wizard-history.js';
-import { useCreateChatbotWizardStore, useNavigation } from './store.js';
+import { useCreateChatbotWizardStore } from './store.js';
 import { RunModeStep } from './steps/run-mode-step.js';
 import type { ChatbotGenerationResult } from './chatbot.js';
+import { useSafeNavigate, useSafeSearchParams } from '../routes.js';
 
-export const ChatBotFlow = () => {
+export const CreateChatbotScreen = () => {
   return (
     <Box flexDirection="column">
       <Banner />
@@ -22,28 +23,21 @@ export const ChatBotFlow = () => {
 };
 
 function StepContent() {
-  const {
-    config,
-    setConfig,
-    addToHistory,
-    currentChatbotId,
-    addMessageToChatbotHistory,
-  } = useCreateChatbotWizardStore();
+  const { config, setConfig, addToHistory, addMessageToChatbotHistory } =
+    useCreateChatbotWizardStore();
 
-  const { currentNavigationState, navigate } = useNavigation();
+  const { safeNavigate } = useSafeNavigate();
+  const [{ step, chatbotId }] = useSafeSearchParams('/chatbot/create');
 
   const handleRunModeSubmit = (runMode: string) => {
     const newConfig = {
       ...config,
       runMode: runMode as 'telegram' | 'http-server',
     };
-    setConfig(newConfig);
-    addToHistory(
-      steps.runMode.question,
-      steps.runMode.options.find((opt) => opt.value === runMode)?.label ||
-        runMode
-    );
-    navigate(`chatbot.create.${steps.runMode.nextStep(newConfig)}`);
+
+    safeNavigate('/chatbot/create', {
+      step: steps.runMode.nextStep(newConfig),
+    });
   };
 
   const handleTokenSubmit = (token: string) => {
@@ -52,7 +46,7 @@ function StepContent() {
       steps.token.question,
       token.slice(0, 8) + '...' // Show only part of the token for security
     );
-    navigate(`chatbot.create.${steps.token.nextStep}`);
+    safeNavigate('/chatbot/create', { step: steps.token.nextStep });
   };
 
   const handleEnvironmentSubmit = (environment: string) => {
@@ -64,7 +58,7 @@ function StepContent() {
       steps.environment.options.find((opt) => opt.value === environment)
         ?.label || environment
     );
-    navigate(`chatbot.create.${steps.environment.nextStep}`);
+    safeNavigate('/chatbot/create', { step: steps.environment.nextStep });
   };
 
   const handleGenerateBotSpecsSuccess = (
@@ -74,31 +68,32 @@ function StepContent() {
     setConfig({ prompt });
     addToHistory('What kind of chatbot would you like to create?', prompt);
     addMessageToChatbotHistory('specs', botSpecs.message);
-    navigate(`chatbot.create.${steps.generateChatbotSpecs.nextStep}`);
+    safeNavigate('/chatbot/create', {
+      step: steps.generateChatbotSpecs.nextStep,
+    });
   };
 
   const handleGenerateBotSuccess = (bot: ChatbotGenerationResult) => {
     addMessageToChatbotHistory('generation', bot.message);
-    navigate(`chatbot.create.${steps.generateChatbot.nextStep}`);
+    safeNavigate('/chatbot/create', { step: steps.generateChatbot.nextStep });
   };
 
-  switch (currentNavigationState) {
-    case 'chatbot.create.token':
+  switch (step) {
+    case 'token':
       return <TokenStep onSubmit={handleTokenSubmit} />;
-    case 'chatbot.create.environment':
+    case 'environment':
       return <EnvironmentStep onSubmit={handleEnvironmentSubmit} />;
-    case 'chatbot.create.runMode':
-    case 'chatbot.create':
+    case 'runMode':
       return <RunModeStep onSubmit={handleRunModeSubmit} />;
-    case 'chatbot.create.generateChatbotSpecs':
+    case 'generateChatbotSpecs':
       return <GenerateSpecsStep onSuccess={handleGenerateBotSpecsSuccess} />;
-    case 'chatbot.create.generateChatbot':
+    case 'generateChatbot':
       return <GenerateStep onSuccess={handleGenerateBotSuccess} />;
-    case 'chatbot.create.successGeneration':
-      if (!currentChatbotId) {
+    case 'successGeneration':
+      if (!chatbotId) {
         return <Text>No chatbot ID found</Text>;
       }
-      return <SuccessStep chatbotId={currentChatbotId} />;
+      return <SuccessStep chatbotId={chatbotId} />;
     default:
       return null;
   }
