@@ -76,7 +76,6 @@ export const getChatbot = async (chatbotId) => {
             },
         });
         const botStatusJson = (await botStatus.json());
-        console.log('botStatusJson', botStatusJson);
         return {
             isDeployed: botStatusJson.deployStatus === 'deployed',
             ...botStatusJson,

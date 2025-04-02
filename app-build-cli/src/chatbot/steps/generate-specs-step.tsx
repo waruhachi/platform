@@ -17,20 +17,15 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
     mutateAsync: generateChatbot,
     isPending: isGeneratingChatbot,
     error: generateChatbotError,
-    data: generateChatbotData,
   } = useGenerateChatbotSpecs();
-
-  console.log({
-    isGeneratingChatbot,
-    generateChatbotError,
-    generateChatbotData,
-  });
 
   return (
     <Box flexDirection="column">
       <StepHeader label="Let's Create Your Chatbot" progress={0.7} />
       <Box marginY={1}>
         <FreeText
+          loading={isGeneratingChatbot}
+          loadingText="Generating your chatbot specifications..."
           question="What kind of chatbot would you like to create?"
           placeholder="e.g., I want a note taking chatbot..."
           onSubmit={(value) => {
@@ -40,13 +35,6 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
           }}
         />
       </Box>
-
-      {isGeneratingChatbot && (
-        <Box marginTop={1} borderStyle="round" borderColor="yellow" padding={1}>
-          <Spinner />
-          <Text color="yellow"> Generating your chatbot specifications...</Text>
-        </Box>
-      )}
 
       {generateChatbotError && (
         <Box

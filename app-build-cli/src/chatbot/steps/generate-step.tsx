@@ -134,8 +134,9 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
         </Box>
 
         <Box marginTop={1} gap={1}>
-          {isGeneratingChatbot && <Spinner />}
           <FreeText
+            loading={isGeneratingChatbot}
+            loadingText="Deploying your chatbot..."
             question="Type 'yes' to deploy or provide feedback to modify the specifications:"
             placeholder="e.g., yes or I want to add more features..."
             onSubmit={() => {

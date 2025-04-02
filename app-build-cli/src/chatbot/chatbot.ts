@@ -137,8 +137,6 @@ export const getChatbot = async (chatbotId: string) => {
       readUrl: string;
     };
 
-    console.log('botStatusJson', botStatusJson);
-
     return {
       isDeployed: botStatusJson.deployStatus === 'deployed',
       ...botStatusJson,
