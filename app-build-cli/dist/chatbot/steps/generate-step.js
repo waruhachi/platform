@@ -1,9 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Spinner } from '@inkjs/ui';
-import { FreeText } from '../../components/shared/free-text.js';
-import { StepHeader } from '../../components/ui/step-header.js';
+import { InfiniteFreeText } from '../../components/shared/free-text.js';
 import { ProgressSteps } from '../../components/ui/progress-steps.js';
 import {} from '../chatbot.js';
 import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
@@ -44,7 +42,7 @@ export const GenerateStep = ({ onSuccess }) => {
     const [{ chatbotId }] = useSafeSearchParams('/chatbot/create');
     const chatbotMessageHistory = useCreateChatbotWizardStore((s) => s.chatbotMessageHistory);
     const [currentStep, setCurrentStep] = useState(0);
-    const { mutate: generateChatbot, isPending: isGeneratingChatbot, error: generateChatbotError, data: generateChatbotData, } = useGenerateChatbot();
+    const { mutate: generateChatbot, error: generateChatbotError, data: generateChatbotData, status: generateChatbotStatus, } = useGenerateChatbot();
     const { data: chatbot } = useChatbot(chatbotId, {
         refetchInterval: 5_000,
     });
@@ -55,7 +53,6 @@ export const GenerateStep = ({ onSuccess }) => {
         }
         // Handle successful deployment
         if (chatbot?.isDeployed && generateChatbotData) {
-            console.log('LET"S goooooooo - - - - - - -- - - - - - - - - -- - - dasdasdas');
             onSuccess(generateChatbotData);
             return;
         }
@@ -84,14 +81,14 @@ export const GenerateStep = ({ onSuccess }) => {
     if (!chatbot)
         return _jsx(Text, { children: "Bot not found" });
     if (isWaitingForSpecsApproval) {
-        return (_jsxs(Box, { flexDirection: "column", children: [_jsx(StepHeader, { label: "Review Specifications", progress: 0.8 }), _jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, marginBottom: 1, children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { color: "blue", bold: true, children: "Generated Chatbot Specification" }) }), _jsx(Text, { children: chatbotMessageHistory['specs'].at(-1) })] }), _jsx(Box, { marginBottom: 1, children: _jsx(Text, { children: "Would you like to proceed with deploying this chatbot with these specifications?" }) }), _jsx(Box, { marginTop: 1, gap: 1, children: _jsx(FreeText, { loading: isGeneratingChatbot, loadingText: "Deploying your chatbot...", question: "Type 'yes' to deploy or provide feedback to modify the specifications:", placeholder: "e.g., yes or I want to add more features...", onSubmit: () => {
+        return (_jsxs(Box, { flexDirection: "column", children: [_jsxs(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, marginBottom: 1, children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { color: "blue", bold: true, children: "Generated Chatbot Specification" }) }), _jsx(Text, { children: chatbotMessageHistory['specs'].at(-1) })] }), _jsx(Box, { marginBottom: 1, children: _jsx(Text, { children: "Would you like to proceed with deploying this chatbot with these specifications?" }) }), _jsx(Box, { marginTop: 1, gap: 1, children: _jsx(InfiniteFreeText, { status: generateChatbotStatus, errorMessage: generateChatbotError?.message, retryMessage: "Please retry.", loadingText: "Deploying your chatbot...", question: "Type 'yes' to deploy or provide feedback to modify the specifications:", placeholder: "e.g., yes or I want to add more features...", onSubmit: () => {
                             generateChatbot({ ...config, botId: chatbot.id });
-                        } }) }), generateChatbotError && (_jsx(Box, { marginTop: 1, flexDirection: "column", borderStyle: "round", borderColor: "red", padding: 1, children: _jsxs(Text, { color: "red", children: ["\u2717 Error: ", generateChatbotError.message] }) }))] }));
+                        } }) })] }));
     }
     if (!chatbot.isDeployed) {
-        return (_jsxs(Box, { flexDirection: "column", children: [_jsx(StepHeader, { label: "Building Your Chatbot", progress: 0.9 }), _jsx(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, marginBottom: 1, children: _jsxs(Box, { marginBottom: 1, children: [_jsx(Text, { dimColor: true, children: "Bot ID: " }), _jsx(Text, { color: "yellow", bold: true, children: chatbot.id })] }) }), _jsx(ProgressSteps, { steps: buildSteps, currentStep: currentStep, isDeployed: chatbot.isDeployed }), _jsx(Box, { marginTop: 1, children: _jsx(Text, { dimColor: true, italic: true, children: chatbot.isDeployed
+        return (_jsxs(Box, { flexDirection: "column", children: [_jsx(Box, { flexDirection: "column", borderStyle: "round", borderColor: "blue", padding: 1, marginBottom: 1, children: _jsxs(Box, { marginBottom: 1, children: [_jsx(Text, { dimColor: true, children: "Bot ID: " }), _jsx(Text, { color: "yellow", bold: true, children: chatbot.id })] }) }), _jsx(ProgressSteps, { steps: buildSteps, currentStep: currentStep, isDeployed: chatbot.isDeployed }), _jsx(Box, { marginTop: 1, children: _jsx(Text, { dimColor: true, italic: true, children: chatbot.isDeployed
                             ? '🎉 Deployment completed successfully!'
-                            : buildSteps[currentStep]?.detail || 'Preparing your chatbot...' }) }), chatbot.readUrl && (_jsx(Box, { marginTop: 1, flexDirection: "column", borderStyle: "round", borderColor: "green", padding: 1, children: _jsxs(Text, { color: "green", children: ["\uD83C\uDF10 Your bot is available at:", ' ', _jsx(Text, { bold: true, underline: true, children: chatbot?.readUrl })] }) })), generateChatbotError && (_jsx(Box, { marginTop: 2, flexDirection: "column", borderStyle: "round", borderColor: "red", padding: 1, children: _jsxs(Text, { color: "red", children: ["\u274C Error: ", generateChatbotError.message] }) })), !chatbot.isDeployed && !generateChatbotError && (_jsx(Box, { marginTop: 2, children: _jsx(Text, { dimColor: true, italic: true, children: "\uD83D\uDD04 Please wait while we set up your chatbot..." }) }))] }));
+                            : buildSteps[currentStep]?.detail || 'Preparing your chatbot...' }) }), chatbot.readUrl && (_jsx(Box, { marginTop: 1, flexDirection: "column", borderStyle: "round", borderColor: "green", padding: 1, children: _jsxs(Text, { color: "green", children: ["\uD83C\uDF10 Your bot is available at:", ' ', _jsx(Text, { bold: true, underline: true, children: chatbot?.readUrl })] }) })), _jsx(Box, { marginTop: 2, children: _jsx(Text, { dimColor: true, italic: true, children: "\uD83D\uDD04 Please wait while we set up your chatbot..." }) })] }));
     }
     return null;
 };

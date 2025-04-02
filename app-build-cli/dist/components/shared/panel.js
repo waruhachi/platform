@@ -7,6 +7,9 @@ const variantColors = {
     default: {
         borderColor: '#3a3a3a',
     },
+    error: {
+        borderColor: '#b91c1c',
+    },
 };
 export function Panel({ children, title, variant = 'default', boxProps, }) {
     const { borderColor } = variantColors[variant];

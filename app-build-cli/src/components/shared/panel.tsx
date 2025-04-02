@@ -1,12 +1,5 @@
 import { Box, Text, type BoxProps } from 'ink';
 
-type PanelProps = {
-  children: React.ReactNode;
-  title?: string;
-  variant?: 'default' | 'info';
-  boxProps?: BoxProps;
-};
-
 const variantColors = {
   info: {
     borderColor: '#1d4ed8',
@@ -14,6 +7,16 @@ const variantColors = {
   default: {
     borderColor: '#3a3a3a',
   },
+  error: {
+    borderColor: '#b91c1c',
+  },
+};
+
+type PanelProps = {
+  children: React.ReactNode;
+  title?: React.ReactNode;
+  variant?: keyof typeof variantColors;
+  boxProps?: BoxProps;
 };
 
 export function Panel({

@@ -1,6 +1,5 @@
 import { Box } from 'ink';
 import { Select } from '../../components/shared/select.js';
-import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 
 type RunModeStepProps = {
@@ -10,10 +9,6 @@ type RunModeStepProps = {
 export const RunModeStep = ({ onSubmit }: RunModeStepProps) => {
   return (
     <Box flexDirection="column">
-      <StepHeader
-        label={steps.runMode.label}
-        progress={steps.runMode.progress}
-      />
       <Box marginY={1}>
         <Select
           question={steps.runMode.question}

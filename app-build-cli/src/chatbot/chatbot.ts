@@ -120,7 +120,11 @@ export const generateChatbot = async (params: ChatbotGenerationParams) => {
 
 export const generateChatbotSpec = async (
   params: ChatBotSpecsGenerationParams
-) => {
+): Promise<{
+  chatbotId: string;
+  message: string;
+  readUrl: string;
+}> => {
   return generateChatbot({ ...params, botId: undefined });
 };
 

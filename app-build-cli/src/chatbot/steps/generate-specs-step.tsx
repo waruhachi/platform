@@ -1,7 +1,5 @@
-import { Box, Text } from 'ink';
-import { Spinner } from '@inkjs/ui';
-import { FreeText } from '../../components/shared/free-text.js';
-import { StepHeader } from '../../components/ui/step-header.js';
+import { Box } from 'ink';
+import { InfiniteFreeText } from '../../components/shared/free-text.js';
 import { useGenerateChatbotSpecs } from '../use-chatbot.js';
 import { useCreateChatbotWizardStore } from '../store.js';
 import { type ChatbotGenerationResult } from '../chatbot.js';
@@ -14,40 +12,28 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
   const config = useCreateChatbotWizardStore((s) => s.config);
 
   const {
-    mutateAsync: generateChatbot,
-    isPending: isGeneratingChatbot,
+    status: generateChatbotStatus,
+    mutate: generateChatbot,
     error: generateChatbotError,
-  } = useGenerateChatbotSpecs();
+  } = useGenerateChatbotSpecs({
+    onSuccess: (result, params) => {
+      onSuccess(result, params.prompt);
+    },
+  });
 
   return (
-    <Box flexDirection="column">
-      <StepHeader label="Let's Create Your Chatbot" progress={0.7} />
-      <Box marginY={1}>
-        <FreeText
-          loading={isGeneratingChatbot}
-          loadingText="Generating your chatbot specifications..."
-          question="What kind of chatbot would you like to create?"
-          placeholder="e.g., I want a note taking chatbot..."
-          onSubmit={(value) => {
-            void generateChatbot({ ...config, prompt: value }).then((result) =>
-              onSuccess(result, value)
-            );
-          }}
-        />
-      </Box>
-
-      {generateChatbotError && (
-        <Box
-          marginTop={1}
-          flexDirection="column"
-          borderStyle="round"
-          borderColor="red"
-          padding={1}
-        >
-          <Text color="red">✗ Error: {generateChatbotError.message}</Text>
-          <Text italic>Please try again with a different prompt.</Text>
-        </Box>
-      )}
+    <Box marginY={1}>
+      <InfiniteFreeText
+        status={generateChatbotStatus}
+        errorMessage={generateChatbotError?.message}
+        retryMessage="Please retry with a different prompt."
+        loadingText="Generating your chatbot specifications..."
+        question="What kind of chatbot would you like to create?"
+        placeholder="e.g., I want a note taking chatbot..."
+        onSubmit={(value) => {
+          generateChatbot({ ...config, prompt: value });
+        }}
+      />
     </Box>
   );
 };

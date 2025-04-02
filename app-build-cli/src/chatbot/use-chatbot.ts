@@ -41,7 +41,15 @@ export const useListChatBots = () => {
   });
 };
 
-export const useGenerateChatbotSpecs = () => {
+export const useGenerateChatbotSpecs = (
+  options: {
+    onSuccess?: (
+      data: ChatbotGenerationResult,
+      variable: ChatBotSpecsGenerationParams
+    ) => void;
+    onError?: (error: Error) => void;
+  } = {}
+) => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] =
     useSafeSearchParams('/chatbot/create');
@@ -50,11 +58,15 @@ export const useGenerateChatbotSpecs = () => {
     mutationFn: (params: ChatBotSpecsGenerationParams) => {
       return generateChatbotSpec(params);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, params) => {
       setSearchParams({ ...searchParams, chatbotId: data.chatbotId });
       void queryClient.invalidateQueries({
         queryKey: queryKeys.chatbot(data.chatbotId),
       });
+      options.onSuccess?.(data, params);
+    },
+    onError: (error) => {
+      options.onError?.(error);
     },
   });
 };

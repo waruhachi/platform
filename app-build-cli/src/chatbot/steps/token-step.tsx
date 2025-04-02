@@ -1,6 +1,5 @@
 import { Box } from 'ink';
 import { FreeText } from '../../components/shared/free-text.js';
-import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 
 type TokenStepProps = {
@@ -10,7 +9,6 @@ type TokenStepProps = {
 export const TokenStep = ({ onSubmit }: TokenStepProps) => {
   return (
     <Box flexDirection="column">
-      <StepHeader label={steps.token.label} progress={steps.token.progress} />
       <Box marginY={1}>
         <FreeText
           question={steps.token.question}

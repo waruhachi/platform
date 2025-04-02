@@ -1,9 +1,8 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx } from "react/jsx-runtime";
 import { Box } from 'ink';
 import { FreeText } from '../../components/shared/free-text.js';
-import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 export const TokenStep = ({ onSubmit }) => {
-    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(StepHeader, { label: steps.token.label, progress: steps.token.progress }), _jsx(Box, { marginY: 1, children: _jsx(FreeText, { question: steps.token.question, placeholder: steps.token.placeholder, onSubmit: onSubmit }) })] }));
+    return (_jsx(Box, { flexDirection: "column", children: _jsx(Box, { marginY: 1, children: _jsx(FreeText, { question: steps.token.question, placeholder: steps.token.placeholder, onSubmit: onSubmit }) }) }));
 };
 //# sourceMappingURL=token-step.js.map

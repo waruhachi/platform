@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Spinner } from '@inkjs/ui';
-import { FreeText } from '../../components/shared/free-text.js';
-import { StepHeader } from '../../components/ui/step-header.js';
+import { InfiniteFreeText } from '../../components/shared/free-text.js';
 import { ProgressSteps } from '../../components/ui/progress-steps.js';
 import { type ChatbotGenerationResult } from '../chatbot.js';
 import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
@@ -55,9 +53,9 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
   const [currentStep, setCurrentStep] = useState(0);
   const {
     mutate: generateChatbot,
-    isPending: isGeneratingChatbot,
     error: generateChatbotError,
     data: generateChatbotData,
+    status: generateChatbotStatus,
   } = useGenerateChatbot();
   const { data: chatbot } = useChatbot(chatbotId, {
     refetchInterval: 5_000,
@@ -73,9 +71,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
 
     // Handle successful deployment
     if (chatbot?.isDeployed && generateChatbotData) {
-      console.log(
-        'LET"S goooooooo - - - - - - -- - - - - - - - - -- - - dasdasdas'
-      );
       onSuccess(generateChatbotData);
       return;
     }
@@ -110,7 +105,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
   if (isWaitingForSpecsApproval) {
     return (
       <Box flexDirection="column">
-        <StepHeader label="Review Specifications" progress={0.8} />
         <Box
           flexDirection="column"
           borderStyle="round"
@@ -134,8 +128,10 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
         </Box>
 
         <Box marginTop={1} gap={1}>
-          <FreeText
-            loading={isGeneratingChatbot}
+          <InfiniteFreeText
+            status={generateChatbotStatus}
+            errorMessage={generateChatbotError?.message}
+            retryMessage="Please retry."
             loadingText="Deploying your chatbot..."
             question="Type 'yes' to deploy or provide feedback to modify the specifications:"
             placeholder="e.g., yes or I want to add more features..."
@@ -144,18 +140,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
             }}
           />
         </Box>
-
-        {generateChatbotError && (
-          <Box
-            marginTop={1}
-            flexDirection="column"
-            borderStyle="round"
-            borderColor="red"
-            padding={1}
-          >
-            <Text color="red">✗ Error: {generateChatbotError.message}</Text>
-          </Box>
-        )}
       </Box>
     );
   }
@@ -163,7 +147,6 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
   if (!chatbot.isDeployed) {
     return (
       <Box flexDirection="column">
-        <StepHeader label="Building Your Chatbot" progress={0.9} />
         <Box
           flexDirection="column"
           borderStyle="round"
@@ -210,25 +193,11 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
           </Box>
         )}
 
-        {generateChatbotError && (
-          <Box
-            marginTop={2}
-            flexDirection="column"
-            borderStyle="round"
-            borderColor="red"
-            padding={1}
-          >
-            <Text color="red">❌ Error: {generateChatbotError.message}</Text>
-          </Box>
-        )}
-
-        {!chatbot.isDeployed && !generateChatbotError && (
-          <Box marginTop={2}>
-            <Text dimColor italic>
-              🔄 Please wait while we set up your chatbot...
-            </Text>
-          </Box>
-        )}
+        <Box marginTop={2}>
+          <Text dimColor italic>
+            🔄 Please wait while we set up your chatbot...
+          </Text>
+        </Box>
       </Box>
     );
   }

@@ -1,6 +1,5 @@
 import { Box } from 'ink';
 import { Select } from '../../components/shared/select.js';
-import { StepHeader } from '../../components/ui/step-header.js';
 import { steps } from './steps.js';
 
 type EnvironmentStepProps = {
@@ -10,10 +9,6 @@ type EnvironmentStepProps = {
 export const EnvironmentStep = ({ onSubmit }: EnvironmentStepProps) => {
   return (
     <Box flexDirection="column">
-      <StepHeader
-        label={steps.environment.label}
-        progress={steps.environment.progress}
-      />
       <Box marginY={1}>
         <Select
           question={steps.environment.question}
