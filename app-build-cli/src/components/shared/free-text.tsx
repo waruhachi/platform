@@ -1,8 +1,9 @@
 import { Box, Text } from 'ink';
 import { TextInput as InkTextInput, type TextInputProps } from '@inkjs/ui';
+import { Panel } from './panel.js';
 
 export type FreeTextProps = {
-  question: string;
+  question?: string;
   onSubmit: (value: string) => void;
   placeholder?: string;
 } & TextInputProps;
@@ -13,15 +14,7 @@ export const FreeText = ({
   placeholder,
 }: FreeTextProps) => {
   return (
-    <Box
-      flexDirection="column"
-      padding={1}
-      borderStyle="round"
-      borderColor="blue"
-    >
-      <Box marginBottom={1}>
-        <Text bold>{question}</Text>
-      </Box>
+    <Panel title={question} variant="default" boxProps={{ width: '100%' }}>
       <Box>
         <Text color="blue">❯ </Text>
         <InkTextInput
@@ -31,6 +24,6 @@ export const FreeText = ({
           }}
         />
       </Box>
-    </Box>
+    </Panel>
   );
 };

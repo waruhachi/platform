@@ -8,9 +8,10 @@ config();
 let BACKEND_API_HOST: string;
 if (process.env.NODE_ENV === 'production') {
   BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
-} else {
-  // BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
+} else if (process.env.USE_MOCKED_AGENT === 'true') {
   BACKEND_API_HOST = 'http://localhost:4444';
+} else {
+  BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 }
 
 const BACKEND_BEARER_TOKEN = 'bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1';
@@ -42,7 +43,7 @@ export type Chatbot = {
 };
 
 export type ChatbotGenerationParams = {
-  telegramBotToken: string;
+  telegramBotToken?: string;
   useStaging: boolean;
   runMode: 'telegram' | 'http-server';
   prompt: string;
@@ -135,6 +136,8 @@ export const getChatbot = async (chatbotId: string) => {
     const botStatusJson = (await botStatus.json()) as Chatbot & {
       readUrl: string;
     };
+
+    console.log('botStatusJson', botStatusJson);
 
     return {
       isDeployed: botStatusJson.deployStatus === 'deployed',

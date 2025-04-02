@@ -12,6 +12,7 @@ import {
 } from './chatbot.js';
 import type {
   ChatbotGenerationParams,
+  ChatbotGenerationResult,
   ChatBotSpecsGenerationParams,
 } from './chatbot.js';
 import { useSafeSearchParams } from '../routes.js';
@@ -58,7 +59,11 @@ export const useGenerateChatbotSpecs = () => {
   });
 };
 
-export const useGenerateChatbot = () => {
+export const useGenerateChatbot = (
+  options: {
+    onSuccess?: (data: ChatbotGenerationResult) => void;
+  } = {}
+) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -69,6 +74,7 @@ export const useGenerateChatbot = () => {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.chatbot(data.chatbotId),
       });
+      options.onSuccess?.(data);
     },
   });
 };

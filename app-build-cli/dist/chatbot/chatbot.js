@@ -7,9 +7,11 @@ let BACKEND_API_HOST;
 if (process.env.NODE_ENV === 'production') {
     BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 }
-else {
-    // BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
+else if (process.env.USE_MOCKED_AGENT === 'true') {
     BACKEND_API_HOST = 'http://localhost:4444';
+}
+else {
+    BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 }
 const BACKEND_BEARER_TOKEN = 'bOvfvvt3km3aJGYm6wvc25zy5wFZpiT1';
 function generateMachineId() {
@@ -74,6 +76,7 @@ export const getChatbot = async (chatbotId) => {
             },
         });
         const botStatusJson = (await botStatus.json());
+        console.log('botStatusJson', botStatusJson);
         return {
             isDeployed: botStatusJson.deployStatus === 'deployed',
             ...botStatusJson,

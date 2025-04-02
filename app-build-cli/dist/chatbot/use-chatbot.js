@@ -34,7 +34,7 @@ export const useGenerateChatbotSpecs = () => {
         },
     });
 };
-export const useGenerateChatbot = () => {
+export const useGenerateChatbot = (options = {}) => {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: (params) => {
@@ -44,6 +44,7 @@ export const useGenerateChatbot = () => {
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.chatbot(data.chatbotId),
             });
+            options.onSuccess?.(data);
         },
     });
 };

@@ -2,12 +2,14 @@ import { Box, Text } from 'ink';
 import { useListChatBots } from './use-chatbot.js';
 import { useRouteParams } from '../routes.js';
 import { getStatusEmoji, getStatusColor } from './chatbots-list-screen.js';
-import { TextInput } from '@inkjs/ui';
 import { generateChatbot } from './chatbot.js';
 import { useCreateChatbotWizardStore } from './store.js';
+import { FreeText } from '../components/shared/free-text.js';
+import { Panel } from '../components/shared/panel.js';
 
 export function ChatbotDetails() {
   const { chatbotId } = useRouteParams('/chatbots/:chatbotId');
+  const { data: chatbots, isLoading, error } = useListChatBots();
 
   const addMessageToChatbotHistory = useCreateChatbotWizardStore(
     (state) => state.addMessageToChatbotHistory
@@ -27,75 +29,60 @@ export function ChatbotDetails() {
     addMessageToChatbotHistory('iteration', text);
   };
 
-  const { data: chatbots, isLoading, error } = useListChatBots();
   const selectedBot = chatbots?.data.find((bot) => bot.id === chatbotId);
-
-  if (!selectedBot) {
-    return <Text>Bot not found</Text>;
-  }
 
   if (isLoading) {
     return <Text>Loading...</Text>;
   }
 
   if (error) {
-    return <Text>Error: {error.message}</Text>;
+    return <Text color="red">Error: {error.message}</Text>;
+  }
+
+  if (!selectedBot) {
+    return <Text>Bot not found</Text>;
   }
 
   return (
-    <Box flexDirection="column" marginTop={1} padding={1}>
-      <Box borderStyle="single" paddingX={1} flexDirection="column" gap={1}>
-        <Box>
-          <Text bold>📋 Bot Details</Text>
-        </Box>
-
-        <Box gap={2}>
-          <Box width={12}>
-            <Text>Name:</Text>
-          </Box>
-          <Text>{selectedBot.name}</Text>
-        </Box>
-
-        <Box gap={2}>
-          <Box width={12}>
-            <Text>Status:</Text>
-          </Box>
-          <Box>
-            <Text>
-              {getStatusEmoji(selectedBot.deployStatus)}{' '}
-              <Text color={getStatusColor(selectedBot.deployStatus)}>
-                {selectedBot.deployStatus}
-              </Text>
-            </Text>
-          </Box>
-        </Box>
-
-        <Box gap={2}>
-          <Box width={12}>
-            <Text>Mode:</Text>
-          </Box>
+    <Box flexDirection="column" padding={1}>
+      <Panel title="📋 Bot Details" variant="info">
+        <Box flexDirection="column" gap={1}>
           <Text>
-            {selectedBot.runMode === 'telegram'
-              ? '📱 Telegram'
-              : '🌐 HTTP Server'}
+            <Text color="gray">Name: </Text>
+            <Text bold>{selectedBot.name}</Text>
           </Text>
-        </Box>
 
-        {selectedBot.recompileInProgress && (
-          <Box>
-            <Text color="yellow">⚡️ Bot is recompiling...</Text>
-          </Box>
-        )}
-      </Box>
+          <Text>
+            <Text color="gray">Status: </Text>
+            {getStatusEmoji(selectedBot.deployStatus)}{' '}
+            <Text color={getStatusColor(selectedBot.deployStatus)} bold>
+              {selectedBot.deployStatus}
+            </Text>
+          </Text>
 
-      <Box flexDirection="column" marginTop={1}>
-        <Text bold>✨ Iteration Prompt</Text>
-        <Box marginTop={1}>
-          <TextInput
-            onSubmit={(text: string) => void handleIterationSubmit(text)}
-            placeholder="Enter your prompt and press Enter"
-          />
+          <Text>
+            <Text color="gray">Mode: </Text>
+            <Text bold>
+              {selectedBot.runMode === 'telegram'
+                ? '📱 Telegram'
+                : '🌐 HTTP Server'}
+            </Text>
+          </Text>
+
+          {selectedBot.recompileInProgress && (
+            <Box marginTop={1}>
+              <Text color="yellow">⚡️ Bot is recompiling...</Text>
+            </Box>
+          )}
         </Box>
+      </Panel>
+
+      <Box marginTop={2}>
+        <FreeText
+          question="How would you like to modify your chatbot?"
+          placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
+          onSubmit={(text: string) => void handleIterationSubmit(text)}
+        />
       </Box>
     </Box>
   );
