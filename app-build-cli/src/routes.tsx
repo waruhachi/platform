@@ -19,6 +19,7 @@ import { steps, type StepType } from './chatbot/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { ChatbotDetails } from './chatbot/chatbot-details.js';
+import { Banner } from './components/ui/banner.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
@@ -191,6 +192,7 @@ export function useRouteParams<T extends RoutePath>(_route: T) {
 export function AppRouter() {
   return (
     <MemoryRouter>
+      <Banner />
       <Routes>
         {ROUTES_DEFINITIONS.map((route) => (
           <Route key={route.path} path={route.path} element={route.element} />

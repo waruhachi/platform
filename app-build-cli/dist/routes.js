@@ -9,6 +9,7 @@ import { steps } from './chatbot/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { ChatbotDetails } from './chatbot/chatbot-details.js';
+import { Banner } from './components/ui/banner.js';
 const ROUTES_DEFINITIONS = [
     {
         path: '/',
@@ -94,6 +95,6 @@ export function useRouteParams(_route) {
     return useParams();
 }
 export function AppRouter() {
-    return (_jsxs(MemoryRouter, { children: [_jsx(Routes, { children: ROUTES_DEFINITIONS.map((route) => (_jsx(Route, { path: route.path, element: route.element }, route.path))) }), _jsx(ShortcutHints, {})] }));
+    return (_jsxs(MemoryRouter, { children: [_jsx(Banner, {}), _jsx(Routes, { children: ROUTES_DEFINITIONS.map((route) => (_jsx(Route, { path: route.path, element: route.element }, route.path))) }), _jsx(ShortcutHints, {})] }));
 }
 //# sourceMappingURL=routes.js.map

@@ -5,7 +5,6 @@ import { GenerateStep } from './steps/generate-step.js';
 import { SuccessStep } from './steps/success-step.js';
 import { TokenStep } from './steps/token-step.js';
 import { steps } from './steps/steps.js';
-import { Banner } from '../components/ui/banner.js';
 import { WizardHistory } from '../components/ui/wizard-history.js';
 import { useCreateChatbotWizardStore } from './store.js';
 import { RunModeStep } from './steps/run-mode-step.js';
@@ -15,7 +14,6 @@ import { useSafeNavigate, useSafeSearchParams } from '../routes.js';
 export const CreateChatbotScreen = () => {
   return (
     <Box flexDirection="column">
-      <Banner />
       <WizardHistory />
       <StepContent />
     </Box>
@@ -95,7 +93,10 @@ function StepContent() {
     addMessageToChatbotHistory('generation', bot.message);
     safeNavigate({
       path: '/chatbot/create',
-      searchParams: { step: steps.generateChatbot.nextStep },
+      searchParams: {
+        step: steps.generateChatbot.nextStep,
+        chatbotId: bot.chatbotId,
+      },
     });
   };
 
