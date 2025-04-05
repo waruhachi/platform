@@ -53,7 +53,7 @@ const job = CronJob.from({
       // Check for initial deployment
       if (botStatusJson.flyAppId && !bot.deployed) {
         await app.client.chat.postMessage({
-          channel: bot.channelId,
+          channel: bot.channelId || "",
           thread_ts: bot.threadTs,
           text: `✅ The bot has been successfully deployed, go and talk to it!
 Download the code here: ${botStatusJson.readUrl}`,
@@ -73,7 +73,7 @@ Download the code here: ${botStatusJson.readUrl}`,
         botStatusJson.s3Checksum !== bot.s3Checksum
       ) {
         await app.client.chat.postMessage({
-          channel: bot.channelId,
+          channel: bot.channelId || "",
           thread_ts: bot.threadTs,
           text: `🔄 Your bot's code has been updated and is being redeployed!`,
         });
@@ -109,7 +109,7 @@ Download the code here: ${botStatusJson.readUrl}`,
         botStatusJson.s3Checksum !== bot.s3Checksum
       ) {
         await app.client.chat.postMessage({
-          channel: bot.channelId,
+          channel: bot.channelId || "",
           thread_ts: bot.threadTs,
           text: `🔄 Your bot's code has been updated and is being redeployed!`,
         });
@@ -239,56 +239,71 @@ async function chatbotIteration({
         fs.unlinkSync(filePath);
       } catch (error) {
         console.error("Error processing source code file:", error);
-        // Continue without the file if there's an error
+        // Send an error message to the user
+        await app.client.chat.postMessage({
+          channel: channelId,
+          thread_ts: threadTs,
+          text: `There was an error processing your source code file: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        return; // Exit the function instead of continuing
       }
     }
 
-    const response = await fetch(`${BACKEND_API_HOST}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    console.log("generate endpoint returned", response);
-
-    if (response.ok) {
-      const generateResult: {
-        newBot: {
-          id: string;
-        };
-        message: string;
-      } = await response.json();
-
-      console.log("generateResult", generateResult);
-
-      const chatbotId = generateResult.newBot.id;
-
-      // Update the initial message to include the chatbot ID
-      await app.client.chat.postMessage({
-        channel: channelId,
-        thread_ts: threadTs,
-        text: `[Chatbot ID: ${chatbotId}] ${generateResult.message}`,
+    try {
+      const response = await fetch(`${BACKEND_API_HOST}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
       });
 
-      await db
-        .update(threads)
-        .set({
-          chatbotId: chatbotId,
-        })
-        .where(eq(threads.threadTs, threadTs));
-    } else {
-      const errorMessage = await response.text();
+      console.log("generate endpoint returned", response);
 
+      if (response.ok) {
+        const generateResult: {
+          newBot: {
+            id: string;
+          };
+          message: string;
+        } = await response.json();
+
+        console.log("generateResult", generateResult);
+
+        const chatbotId = generateResult.newBot.id;
+
+        // Update the initial message to include the chatbot ID
+        await app.client.chat.postMessage({
+          channel: channelId,
+          thread_ts: threadTs,
+          text: `[Chatbot ID: ${chatbotId}] ${generateResult.message}`,
+        });
+
+        await db
+          .update(threads)
+          .set({
+            chatbotId: chatbotId,
+          })
+          .where(eq(threads.threadTs, threadTs));
+      } else {
+        const errorMessage = await response.text();
+
+        await app.client.chat.postMessage({
+          channel: channelId,
+          thread_ts: threadTs,
+          text: `There was an error while deploying the bot: ${errorMessage}`,
+        });
+      }
+    } catch (fetchError) {
+      console.error("Error calling generate endpoint:", fetchError);
       await app.client.chat.postMessage({
         channel: channelId,
         thread_ts: threadTs,
-        text: `There was an error while deploying the bot: ${errorMessage}`,
+        text: `There was an error connecting to the backend service: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
       });
     }
   } catch (error) {
-    console.error("generate endpoint error", error);
+    console.error("Unexpected error in chatbotIteration:", error);
 
     if (error instanceof DOMException && error.name === "TimeoutError") {
       await app.client.chat.postMessage({
@@ -298,8 +313,17 @@ async function chatbotIteration({
       });
       return;
     }
-    // Re-throw other errors
-    throw error;
+    
+    // Send a generic error message instead of re-throwing
+    try {
+      await app.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        text: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    } catch (messageError) {
+      console.error("Failed to send error message:", messageError);
+    }
   }
 }
 
@@ -495,8 +519,6 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
   console.log("messageTs:", messageTs);
 
   // Default run mode is telegram
-  const initialRunMode = "telegram";
-  const tokenValue = ""; // No token value initially
   const isStaging = false; // Staging not selected initially
   const codeMode = "generate"; // Default to generate code
 
@@ -510,7 +532,7 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
     trigger_id: actionBody.trigger_id,
     view: {
       type: "modal",
-      callback_id: "bot_token_modal",
+      callback_id: "bot_modal",
       title: {
         type: "plain_text",
         text: "Configure Bot",
@@ -735,102 +757,6 @@ function buildModalBlocks(
   return blocks;
 }
 
-// Add this handler for the run mode selection
-app.action("run_mode_radio", async ({ ack, body, client }) => {
-  await ack();
-
-  const actionBody = body as any;
-  const viewId = actionBody.view.id;
-  const privateMetadata = actionBody.view.private_metadata;
-
-  console.log("run_mode_radio action triggered");
-  console.log("Action body:", JSON.stringify(actionBody.actions[0]));
-
-  // Get the current view state
-  const viewState = actionBody.view.state;
-
-  // Extract the code mode
-  let codeMode = "generate"; // Default
-  if (
-    viewState.values.code_mode_block &&
-    viewState.values.code_mode_block.code_mode_radio &&
-    viewState.values.code_mode_block.code_mode_radio.selected_option
-  ) {
-    codeMode =
-      viewState.values.code_mode_block.code_mode_radio.selected_option.value;
-  }
-
-  // Check if a file is uploaded
-  let hasUploadedFile = false;
-
-  // First check if the source_code_block exists and has files
-  if (
-    viewState.values.source_code_block &&
-    viewState.values.source_code_block.source_code_input
-  ) {
-    // Check if there are files in the state
-    const fileInput = viewState.values.source_code_block.source_code_input;
-    if (fileInput.files && fileInput.files.length > 0) {
-      hasUploadedFile = true;
-    }
-  }
-
-  console.log("hasUploadedFile from state:", hasUploadedFile);
-
-  // Check if staging is selected (only if generate code mode)
-  let isStaging = false;
-  if (
-    codeMode === "generate" &&
-    viewState.values.staging_block &&
-    viewState.values.staging_block.staging_checkbox &&
-    viewState.values.staging_block.staging_checkbox.selected_options &&
-    viewState.values.staging_block.staging_checkbox.selected_options.length > 0
-  ) {
-    isStaging = true;
-  }
-
-  console.log("isStaging:", isStaging);
-});
-
-// Add this handler for the staging checkbox
-app.action("staging_checkbox", async ({ ack, body, client }) => {
-  await ack();
-
-  const actionBody = body as any;
-  const viewId = actionBody.view.id;
-  const privateMetadata = actionBody.view.private_metadata;
-
-  console.log("staging_checkbox action triggered");
-  console.log("Action body:", JSON.stringify(actionBody.actions[0]));
-
-  // Get the current view state
-  const viewState = actionBody.view.state;
-
-  // Extract the code mode
-  let codeMode = "generate"; // Default
-  if (
-    viewState.values.code_mode_block &&
-    viewState.values.code_mode_block.code_mode_radio &&
-    viewState.values.code_mode_block.code_mode_radio.selected_option
-  ) {
-    codeMode =
-      viewState.values.code_mode_block.code_mode_radio.selected_option.value;
-  }
-
-  // Check if staging is selected
-  let isStaging = false;
-  if (
-    viewState.values.staging_block &&
-    viewState.values.staging_block.staging_checkbox &&
-    viewState.values.staging_block.staging_checkbox.selected_options &&
-    viewState.values.staging_block.staging_checkbox.selected_options.length > 0
-  ) {
-    isStaging = true;
-  }
-
-  console.log("isStaging:", isStaging);
-});
-
 // Add this handler for the code mode selection
 app.action("code_mode_radio", async ({ ack, body, client }) => {
   await ack();
@@ -857,6 +783,28 @@ app.action("code_mode_radio", async ({ ack, body, client }) => {
   ) {
     isStaging = true;
   }
+  
+  // Update the modal with the new blocks based on the selected code mode
+  const blocks = buildModalBlocks(isStaging, selectedCodeMode);
+  
+  // Update the view with the new blocks
+  await client.views.update({
+    view_id: viewId,
+    view: {
+      type: "modal",
+      callback_id: "bot_modal",
+      title: {
+        type: "plain_text",
+        text: "Configure Bot",
+      },
+      blocks,
+      private_metadata: privateMetadata,
+      submit: {
+        type: "plain_text",
+        text: "Submit",
+      },
+    },
+  });
 });
 
 app.start().catch((error) => {
