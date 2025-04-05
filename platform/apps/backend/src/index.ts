@@ -657,7 +657,11 @@ app.post(
           ownerId: userId,
           clientSource,
         })
+        .onConflictDoNothing({
+          target: [chatbots.id],
+        })
         .returning();
+
       logger.info("Upserted bot in database", {
         botId,
         userId,
