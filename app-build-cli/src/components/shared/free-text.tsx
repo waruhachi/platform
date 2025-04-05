@@ -12,6 +12,7 @@ type StatusProps = {
   errorMessage: string | undefined;
   retryMessage?: string;
   loadingText: string;
+  successMessage: string;
 };
 
 type FreeTextErrorProps = {
@@ -21,11 +22,18 @@ type FreeTextErrorProps = {
   question: string;
 };
 
+type FreeTextSuccessProps = {
+  successMessage: string;
+  prompt: string;
+  question: string;
+};
+
 export type FreeTextProps = {
   question?: string;
   onSubmit: (value: string) => void;
   placeholder?: string;
   retryMessage?: string;
+  onSubmitSuccess?: (args: FreeTextSuccessProps) => void;
   onSubmitError?: (args: FreeTextErrorProps) => void;
 } & (
   | StatusProps
@@ -34,29 +42,56 @@ export type FreeTextProps = {
       errorMessage?: never;
       loadingText?: never;
       retryMessage?: never;
+      successMessage?: never;
     }
 ) &
   TextInputProps;
 
 export const InfiniteFreeText = (props: FreeTextProps) => {
   const previousFreeInputStatus = useRef(props.status);
-  const [errorInputs, setErrorInputs] = useState<
+  const [inputsHistory, setInputsHistory] = useState<
     {
       errorMessage: string;
       retryMessage: string;
       prompt: string;
       question: string;
+      status: 'error' | 'success';
+      successMessage: string;
     }[]
   >([]);
 
   const onSubmitError = useCallback(
     ({ errorMessage, retryMessage, prompt, question }: FreeTextErrorProps) => {
-      setErrorInputs([
-        ...errorInputs,
-        { errorMessage, retryMessage, prompt, question },
+      setInputsHistory([
+        ...inputsHistory,
+        {
+          errorMessage,
+          retryMessage,
+          prompt,
+          question,
+          status: 'error',
+          successMessage: '',
+        },
       ]);
     },
-    [errorInputs]
+    [inputsHistory]
+  );
+
+  const onSubmitSuccess = useCallback(
+    ({ successMessage, prompt, question }: FreeTextSuccessProps) => {
+      setInputsHistory([
+        ...inputsHistory,
+        {
+          successMessage,
+          prompt,
+          question,
+          status: 'success',
+          errorMessage: '',
+          retryMessage: '',
+        },
+      ]);
+    },
+    [inputsHistory]
   );
 
   if (!props.status) return null;
@@ -69,12 +104,17 @@ export const InfiniteFreeText = (props: FreeTextProps) => {
 
   return (
     <Box flexDirection="column" gap={1} width="100%">
-      {errorInputs.map((input, index) => (
-        <FreeTextError key={index} {...input} />
-      ))}
+      {inputsHistory.map((input, index) =>
+        input.status === 'error' ? (
+          <FreeTextError key={index} {...input} />
+        ) : (
+          <FreeTextSuccess key={index} {...input} />
+        )
+      )}
       <FreeText
         {...props}
         onSubmitError={onSubmitError}
+        onSubmitSuccess={onSubmitSuccess}
         status={freeInputStatus}
       />
     </Box>
@@ -89,6 +129,7 @@ export const FreeText = (props: FreeTextProps) => {
     status,
     loadingText,
     onSubmitError,
+    onSubmitSuccess,
   } = props;
 
   const [submittedValue, setSubmittedValue] = useState('');
@@ -104,15 +145,22 @@ export const FreeText = (props: FreeTextProps) => {
       setSubmittedValue('');
     }
 
-    if (status === 'success') {
+    if (status === 'success' && submittedValue) {
       setSubmittedValue('');
+      onSubmitSuccess?.({
+        successMessage: props.successMessage,
+        prompt: submittedValue,
+        question: question || '',
+      });
     }
   }, [
     status,
     submittedValue,
     onSubmitError,
+    onSubmitSuccess,
     props.errorMessage,
     props.retryMessage,
+    props.successMessage,
     question,
   ]);
 
@@ -174,6 +222,30 @@ function FreeTextError({
               </Text>
             </>
           )}
+        </Text>
+      </Box>
+    </Panel>
+  );
+}
+
+function FreeTextSuccess({
+  prompt,
+  question,
+  successMessage,
+}: FreeTextSuccessProps) {
+  return (
+    <Panel
+      title={
+        <Text>
+          <Text>{question}</Text> <Text dimColor>{prompt}</Text>
+        </Text>
+      }
+      variant="success"
+      boxProps={{ width: '100%' }}
+    >
+      <Box flexDirection="column" gap={1}>
+        <Text color={'greenBright'}>
+          <Text>✓</Text> <Text>{successMessage}</Text>
         </Text>
       </Box>
     </Panel>

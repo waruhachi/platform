@@ -24,6 +24,7 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
   return (
     <Box marginY={1}>
       <InfiniteFreeText
+        successMessage="Chatbot specifications generated successfully"
         status={generateChatbotStatus}
         errorMessage={generateChatbotError?.message}
         retryMessage="Please retry with a different prompt."

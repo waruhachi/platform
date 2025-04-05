@@ -129,6 +129,7 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
 
         <Box marginTop={1} gap={1}>
           <InfiniteFreeText
+            successMessage="Chatbot deployed successfully"
             status={generateChatbotStatus}
             errorMessage={generateChatbotError?.message}
             retryMessage="Please retry."

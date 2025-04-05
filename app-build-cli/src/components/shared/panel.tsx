@@ -10,6 +10,9 @@ const variantColors = {
   error: {
     borderColor: '#b91c1c',
   },
+  success: {
+    borderColor: '#16a34a',
+  },
 };
 
 type PanelProps = {

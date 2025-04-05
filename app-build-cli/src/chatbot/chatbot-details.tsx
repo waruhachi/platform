@@ -1,35 +1,18 @@
 import { Box, Text } from 'ink';
-import { useListChatBots } from './use-chatbot.js';
+import { useChatbot, useGenerateChatbot } from './use-chatbot.js';
 import { useRouteParams } from '../routes.js';
 import { getStatusEmoji, getStatusColor } from './chatbots-list-screen.js';
-import { generateChatbot } from './chatbot.js';
-import { useCreateChatbotWizardStore } from './store.js';
-import { FreeText } from '../components/shared/free-text.js';
+import { InfiniteFreeText } from '../components/shared/free-text.js';
 import { Panel } from '../components/shared/panel.js';
 
 export function ChatbotDetails() {
   const { chatbotId } = useRouteParams('/chatbots/:chatbotId');
-  const { data: chatbots, isLoading, error } = useListChatBots();
-
-  const addMessageToChatbotHistory = useCreateChatbotWizardStore(
-    (state) => state.addMessageToChatbotHistory
-  );
-
-  const handleIterationSubmit = async (text: string) => {
-    if (!chatbotId || !text) return;
-
-    await generateChatbot({
-      prompt: text,
-      telegramBotToken: '',
-      useStaging: false,
-      runMode: 'telegram',
-      botId: chatbotId,
-    });
-
-    addMessageToChatbotHistory('iteration', text);
-  };
-
-  const selectedBot = chatbots?.data.find((bot) => bot.id === chatbotId);
+  const { data: chatbot, isLoading, error } = useChatbot(chatbotId);
+  const {
+    mutate: generateChatbotIteration,
+    status: generateChatbotIterationStatus,
+    error: generateChatbotIterationError,
+  } = useGenerateChatbot();
 
   if (isLoading) {
     return <Text>Loading...</Text>;
@@ -39,7 +22,7 @@ export function ChatbotDetails() {
     return <Text color="red">Error: {error.message}</Text>;
   }
 
-  if (!selectedBot) {
+  if (!chatbot) {
     return <Text>Bot not found</Text>;
   }
 
@@ -49,27 +32,27 @@ export function ChatbotDetails() {
         <Box flexDirection="column" gap={1}>
           <Text>
             <Text color="gray">Name: </Text>
-            <Text bold>{selectedBot.name}</Text>
+            <Text bold>{chatbot.name}</Text>
           </Text>
 
           <Text>
             <Text color="gray">Status: </Text>
-            {getStatusEmoji(selectedBot.deployStatus)}{' '}
-            <Text color={getStatusColor(selectedBot.deployStatus)} bold>
-              {selectedBot.deployStatus}
+            {getStatusEmoji(chatbot.deployStatus)}{' '}
+            <Text color={getStatusColor(chatbot.deployStatus)} bold>
+              {chatbot.deployStatus}
             </Text>
           </Text>
 
           <Text>
             <Text color="gray">Mode: </Text>
             <Text bold>
-              {selectedBot.runMode === 'telegram'
+              {chatbot.runMode === 'telegram'
                 ? '📱 Telegram'
                 : '🌐 HTTP Server'}
             </Text>
           </Text>
 
-          {selectedBot.recompileInProgress && (
+          {chatbot.recompileInProgress && (
             <Box marginTop={1}>
               <Text color="yellow">⚡️ Bot is recompiling...</Text>
             </Box>
@@ -78,10 +61,23 @@ export function ChatbotDetails() {
       </Panel>
 
       <Box marginTop={2}>
-        <FreeText
+        <InfiniteFreeText
+          successMessage="Changes applied successfully"
           question="How would you like to modify your chatbot?"
           placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
-          onSubmit={(text: string) => void handleIterationSubmit(text)}
+          onSubmit={(text: string) =>
+            generateChatbotIteration({
+              prompt: text,
+              ...chatbot,
+              useStaging: false,
+              telegramBotToken: '',
+              runMode: 'http-server',
+            })
+          }
+          status={generateChatbotIterationStatus}
+          errorMessage={generateChatbotIterationError?.message}
+          loadingText="Applying changes..."
+          retryMessage="Please retry."
         />
       </Box>
     </Box>

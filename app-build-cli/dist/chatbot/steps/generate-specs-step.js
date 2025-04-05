@@ -11,7 +11,7 @@ export const GenerateSpecsStep = ({ onSuccess }) => {
             onSuccess(result, params.prompt);
         },
     });
-    return (_jsx(Box, { marginY: 1, children: _jsx(InfiniteFreeText, { status: generateChatbotStatus, errorMessage: generateChatbotError?.message, retryMessage: "Please retry with a different prompt.", loadingText: "Generating your chatbot specifications...", question: "What kind of chatbot would you like to create?", placeholder: "e.g., I want a note taking chatbot...", onSubmit: (value) => {
+    return (_jsx(Box, { marginY: 1, children: _jsx(InfiniteFreeText, { successMessage: "Chatbot specifications generated successfully", status: generateChatbotStatus, errorMessage: generateChatbotError?.message, retryMessage: "Please retry with a different prompt.", loadingText: "Generating your chatbot specifications...", question: "What kind of chatbot would you like to create?", placeholder: "e.g., I want a note taking chatbot...", onSubmit: (value) => {
                 generateChatbot({ ...config, prompt: value });
             } }) }));
 };
