@@ -211,8 +211,6 @@ async function deployBot({
 
   const bot = await db
     .select({
-      telegramBotToken: chatbots.telegramBotToken,
-      runMode: chatbots.runMode,
       deployStatus: chatbots.deployStatus,
     })
     .from(chatbots)
@@ -328,13 +326,10 @@ node_modules
 
   const flyAppName = `app-${botId}`;
   const envVars = {
-    TELEGRAM_BOT_TOKEN:
-      bot[0].runMode === "http-server" ? null : bot[0].telegramBotToken,
     APP_DATABASE_URL: connectionString,
     AWS_ACCESS_KEY_ID: process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!,
     AWS_SECRET_ACCESS_KEY: process.env.DEPLOYED_BOT_AWS_SECRET_ACCESS_KEY!,
     PERPLEXITY_API_KEY: process.env.DEPLOYED_BOT_PERPLEXITY_API_KEY!,
-    RUN_MODE: bot[0].runMode,
     PICA_SECRET_KEY: process.env.DEPLOYED_BOT_PICA_SECRET_KEY!,
   };
 
@@ -463,11 +458,6 @@ const deployTask = new AsyncTask("deploy task", async (taskId) => {
         continue;
       }
 
-      if (bot.runMode === "telegram" && !bot.telegramBotToken) {
-        logger.warn("Bot missing Telegram token", { botId: bot.id });
-        continue;
-      }
-
       // Deploy the bot
       await deployBot({ botId: bot.id, readUrl });
 
@@ -529,7 +519,7 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
   const pageNum = Math.max(1, Number(page));
   const offset = (pageNum - 1) * pagesize;
 
-  const { telegramBotToken, ...columns } = getTableColumns(chatbots);
+  const { ...columns } = getTableColumns(chatbots);
 
   const countResultP = db.select({ count: sql`count(*)` }).from(chatbots);
 
@@ -561,7 +551,7 @@ app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
   }
 
   const { id } = request.params as { id: string };
-  const { telegramBotToken, ...columns } = getTableColumns(chatbots);
+  const { ...columns } = getTableColumns(chatbots);
   const bot = await db
     .select({
       ...columns,
@@ -602,11 +592,9 @@ app.post(
     request: FastifyRequest<{
       Body: {
         prompt: string;
-        telegramBotToken: string;
         userId: string;
         useStaging: boolean;
         useMockedAgent: boolean;
-        runMode: string;
         sourceCodeFile?: { name: string; content: string };
         botId?: string;
         clientSource: string;
@@ -617,18 +605,15 @@ app.post(
     try {
       const {
         prompt,
-        telegramBotToken,
         userId,
         useStaging,
         useMockedAgent,
-        runMode,
         sourceCodeFile,
         clientSource,
       } = request.body;
 
       logger.info("Generate request received", {
         userId,
-        runMode,
         useStaging,
         useMockedAgent,
         clientSource,
@@ -661,7 +646,6 @@ app.post(
           botId,
           receivedSuccess: existingBot[0].receivedSuccess,
           recompileInProgress: existingBot[0].recompileInProgress,
-          currentRunMode: existingBot[0].runMode,
         });
       }
 
@@ -671,21 +655,11 @@ app.post(
           id: botId,
           name: prompt,
           ownerId: userId,
-          telegramBotToken,
-          runMode,
           clientSource,
-        })
-        .onConflictDoUpdate({
-          target: chatbots.id,
-          set: {
-            telegramBotToken,
-            runMode,
-          },
         })
         .returning();
       logger.info("Upserted bot in database", {
         botId,
-        runMode,
         userId,
       });
 

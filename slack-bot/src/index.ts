@@ -1,4 +1,4 @@
-import { App, LogLevel, subtype } from "@slack/bolt";
+import { App, LogLevel } from "@slack/bolt";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { threads } from "./db/schema";
 import { eq, and, isNotNull } from "drizzle-orm";
@@ -131,19 +131,13 @@ job.start();
 // Function to download a file from Slack
 async function downloadFileFromSlack(
   fileId: string,
-  token: string,
 ): Promise<{ filePath: string; fileName: string }> {
   try {
     console.log(`Downloading file with ID: ${fileId}`);
 
     // Get file info
     const fileInfoResponse = await fetch(
-      `https://slack.com/api/files.info?file=${fileId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+      `https://slack.com/api/files.info?file=${fileId}`
     );
 
     if (!fileInfoResponse.ok) {
@@ -174,11 +168,7 @@ async function downloadFileFromSlack(
     const filePath = path.join(tempDir, fileName);
     const fileStream = fs.createWriteStream(filePath);
 
-    const response = await fetch(fileUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await fetch(fileUrl);
 
     if (!response.ok) {
       throw new Error(`Failed to download file: ${response.statusText}`);
@@ -200,23 +190,19 @@ async function downloadFileFromSlack(
 }
 
 async function chatbotIteration({
-  telegramBotToken,
   prompt,
   channelId,
   threadTs,
   userId,
   useStaging,
-  runMode,
   sourceCodeFileId,
   botId,
 }: {
-  telegramBotToken: string;
   prompt: string;
   channelId: string;
   threadTs: string;
   userId: string;
   useStaging: boolean;
-  runMode: string;
   sourceCodeFileId?: string;
   botId?: string;
 }) {
@@ -225,10 +211,8 @@ async function chatbotIteration({
 
     let requestBody: any = {
       prompt,
-      telegramBotToken: runMode === "telegram" ? telegramBotToken : undefined,
       userId,
       useStaging,
-      runMode,
       botId,
       clientSource: "slack",
     };
@@ -236,16 +220,9 @@ async function chatbotIteration({
     // If a source code file ID is provided, download the file and prepare to send it
     if (sourceCodeFileId) {
       try {
-        // Get the bot token from the environment
-        const botToken = process.env.TOKEN;
-        if (!botToken) {
-          throw new Error("TOKEN is not set in environment variables");
-        }
-
         // Download the file
         const { filePath, fileName } = await downloadFileFromSlack(
           sourceCodeFileId,
-          botToken,
         );
 
         // Read the file as a base64 string
@@ -330,31 +307,26 @@ async function handleBotGeneration({
   channelId,
   userId,
   prompt,
-  botToken,
   client,
   threadTs,
   useStaging,
-  runMode,
   sourceCodeFileId,
 }: {
   channelId: string;
   userId: string;
   prompt: string;
-  botToken: string;
   client: any;
   threadTs: string;
   useStaging: boolean;
-  runMode: string;
   sourceCodeFileId?: string;
 }) {
-  const stagingText = useStaging ? "to staging" : "to production";
-  const runModeText = runMode === "http-server" ? "HTTP" : "Telegram";
+  const stagingText = useStaging ? "staging" : "production";
 
   let messageText;
   if (sourceCodeFileId) {
     messageText = `Since you uploaded the source code, I'm going to just deploy it. This will take 1-2 minutes.`;
   } else {
-    messageText = `I'm going to start generating a ${runModeText} bot for you ${stagingText}. This will take a few minutes.`;
+    messageText = `I'm going to start generating an app for you with the ${stagingText} agent server. This will take a few minutes.`;
   }
 
   const msg = await client.chat.postMessage({
@@ -369,21 +341,17 @@ async function handleBotGeneration({
 
   await db.insert(threads).values({
     threadTs,
-    chatbotToken: botToken,
     authorId: userId,
     channelId,
     useStaging: useStaging,
-    runMode: runMode,
   });
 
   chatbotIteration({
-    telegramBotToken: botToken,
     prompt,
     channelId,
     threadTs,
     userId,
     useStaging,
-    runMode,
     sourceCodeFileId,
   });
 }
@@ -432,14 +400,12 @@ app.message("", async ({ event, logger }) => {
   const thread = threadResult[0];
 
   chatbotIteration({
-    telegramBotToken: thread.chatbotToken,
     prompt,
     channelId: event.channel,
     threadTs: thread.threadTs,
     userId: event.user,
     botId: thread.chatbotId || undefined, // Use the stored botId value
     useStaging: thread.useStaging ?? false, // Use the stored useStaging value with a default
-    runMode: thread.runMode ?? "telegram", // Use the stored runMode value with a default
   });
 });
 
@@ -467,7 +433,7 @@ app.event("message", async ({ event, client, message }) => {
   await client.chat.postMessage({
     channel: event.channel,
     thread_ts: event.ts,
-    text: "Let's create a Telegram bot with your prompt!",
+    text: "Let's create an app with your prompt!",
     blocks: [
       {
         type: "section",
@@ -536,8 +502,6 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
 
   // Use the buildModalBlocks function for consistency
   const blocks = buildModalBlocks(
-    initialRunMode,
-    tokenValue,
     isStaging,
     codeMode,
   );
@@ -551,7 +515,7 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
         type: "plain_text",
         text: "Configure Bot",
       },
-      blocks: blocks,
+      blocks,
       private_metadata: JSON.stringify({
         prompt,
         channelId,
@@ -568,48 +532,22 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
 });
 
 // Add this handler to process the modal submission
-app.view("bot_token_modal", async ({ ack, body, view, client }) => {
+app.view("bot_modal", async ({ ack, body, view, client }) => {
   await ack();
 
   const { prompt, channelId, userId, threadTs, messageTs } = JSON.parse(
     view.private_metadata,
   );
 
-  console.log("bot_token_modal submission received");
   console.log("View state:", JSON.stringify(Object.keys(view.state.values)));
 
   // Extract the selected run mode
-  const runMode =
-    view.state.values.run_mode_block.run_mode_radio.selected_option?.value ||
-    "telegram";
-  console.log("Selected run mode:", runMode);
 
   // Extract the selected code mode
   const codeMode =
     view.state.values.code_mode_block.code_mode_radio.selected_option?.value ||
     "generate";
   console.log("Selected code mode:", codeMode);
-
-  // Get the token value if the token block exists
-  let botToken = "";
-  if (runMode === "telegram") {
-    // Check if token_block exists in the view state
-    const tokenBlock = view.state.values.token_block;
-    if (tokenBlock && tokenBlock.token_input) {
-      botToken = tokenBlock.token_input.value || "";
-    }
-
-    // Validate token is provided for Telegram bots
-    if (!botToken) {
-      await ack({
-        response_action: "errors",
-        errors: {
-          token_block: "Please enter a valid Telegram bot token",
-        },
-      });
-      return;
-    }
-  }
 
   // Check if a source code file was uploaded (only if upload code mode)
   let sourceCodeFileId: string | undefined;
@@ -681,24 +619,19 @@ app.view("bot_token_modal", async ({ ack, body, view, client }) => {
     channelId,
     userId,
     prompt,
-    botToken,
     client,
     threadTs: threadTs,
     useStaging,
-    runMode,
     sourceCodeFileId,
   });
 });
 
 // Helper function to build modal blocks
 function buildModalBlocks(
-  runMode: string,
-  tokenValue: string,
   isStaging: boolean,
   codeMode: string = "generate", // Default to generate code
 ) {
   console.log("Building modal blocks with params:", {
-    runMode,
     isStaging,
     codeMode,
   });
@@ -740,64 +673,6 @@ function buildModalBlocks(
       ],
     },
   });
-
-  // Add the run mode block (always second)
-  blocks.push({
-    type: "section",
-    block_id: "run_mode_block",
-    text: {
-      type: "mrkdwn",
-      text: "*Run Mode*",
-    },
-    accessory: {
-      type: "radio_buttons",
-      action_id: "run_mode_radio",
-      initial_option: {
-        text: {
-          type: "plain_text",
-          text: runMode === "telegram" ? "Telegram" : "HTTP",
-        },
-        value: runMode,
-      },
-      options: [
-        {
-          text: {
-            type: "plain_text",
-            text: "Telegram",
-          },
-          value: "telegram",
-        },
-        {
-          text: {
-            type: "plain_text",
-            text: "HTTP",
-          },
-          value: "http-server",
-        },
-      ],
-    },
-  });
-
-  // Add the token block only if Telegram mode is selected
-  if (runMode === "telegram") {
-    blocks.push({
-      type: "input",
-      block_id: "token_block",
-      element: {
-        type: "plain_text_input",
-        action_id: "token_input",
-        initial_value: tokenValue,
-        placeholder: {
-          type: "plain_text",
-          text: "Enter your Telegram bot token",
-        },
-      },
-      label: {
-        type: "plain_text",
-        text: "Telegram Bot Token",
-      },
-    });
-  }
 
   // Add the source code block only if upload code mode is selected
   if (codeMode === "upload") {
@@ -865,25 +740,14 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
   await ack();
 
   const actionBody = body as any;
-  const selectedRunMode = actionBody.actions[0].selected_option.value;
   const viewId = actionBody.view.id;
   const privateMetadata = actionBody.view.private_metadata;
 
   console.log("run_mode_radio action triggered");
-  console.log("selectedRunMode:", selectedRunMode);
   console.log("Action body:", JSON.stringify(actionBody.actions[0]));
 
   // Get the current view state
   const viewState = actionBody.view.state;
-
-  // Extract the token value if it exists
-  let tokenValue = "";
-  if (
-    viewState.values.token_block &&
-    viewState.values.token_block.token_input
-  ) {
-    tokenValue = viewState.values.token_block.token_input.value || "";
-  }
 
   // Extract the code mode
   let codeMode = "generate"; // Default
@@ -926,43 +790,6 @@ app.action("run_mode_radio", async ({ ack, body, client }) => {
   }
 
   console.log("isStaging:", isStaging);
-
-  // Build the blocks
-  const newBlocks = buildModalBlocks(
-    selectedRunMode,
-    tokenValue,
-    isStaging,
-    codeMode,
-  );
-
-  console.log(
-    "New blocks:",
-    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
-  );
-
-  // Update the view with the completely new blocks
-  try {
-    await client.views.update({
-      view_id: viewId,
-      view: {
-        type: "modal",
-        callback_id: "bot_token_modal",
-        title: {
-          type: "plain_text",
-          text: "Configure Bot",
-        },
-        blocks: newBlocks,
-        private_metadata: privateMetadata,
-        submit: {
-          type: "plain_text",
-          text: "Submit",
-        },
-      },
-    });
-    console.log("View updated successfully");
-  } catch (error) {
-    console.error("Error updating view:", error);
-  }
 });
 
 // Add this handler for the staging checkbox
@@ -979,17 +806,6 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
   // Get the current view state
   const viewState = actionBody.view.state;
 
-  // Extract the run mode
-  let runMode = "telegram"; // Default
-  if (
-    viewState.values.run_mode_block &&
-    viewState.values.run_mode_block.run_mode_radio &&
-    viewState.values.run_mode_block.run_mode_radio.selected_option
-  ) {
-    runMode =
-      viewState.values.run_mode_block.run_mode_radio.selected_option.value;
-  }
-
   // Extract the code mode
   let codeMode = "generate"; // Default
   if (
@@ -999,15 +815,6 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
   ) {
     codeMode =
       viewState.values.code_mode_block.code_mode_radio.selected_option.value;
-  }
-
-  // Extract the token value if it exists
-  let tokenValue = "";
-  if (
-    viewState.values.token_block &&
-    viewState.values.token_block.token_input
-  ) {
-    tokenValue = viewState.values.token_block.token_input.value || "";
   }
 
   // Check if staging is selected
@@ -1022,37 +829,6 @@ app.action("staging_checkbox", async ({ ack, body, client }) => {
   }
 
   console.log("isStaging:", isStaging);
-
-  // Build the blocks
-  const newBlocks = buildModalBlocks(runMode, tokenValue, isStaging, codeMode);
-
-  console.log(
-    "New blocks:",
-    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
-  );
-
-  // Update the view with the completely new blocks
-  try {
-    await client.views.update({
-      view_id: viewId,
-      view: {
-        type: "modal",
-        callback_id: "bot_token_modal",
-        title: {
-          type: "plain_text",
-          text: "Configure Bot",
-        },
-        blocks: newBlocks,
-        private_metadata: privateMetadata,
-        submit: {
-          type: "plain_text",
-          text: "Submit",
-        },
-      },
-    });
-  } catch (error) {
-    console.error("Error updating view:", error);
-  }
 });
 
 // Add this handler for the code mode selection
@@ -1071,26 +847,6 @@ app.action("code_mode_radio", async ({ ack, body, client }) => {
   // Get the current view state
   const viewState = actionBody.view.state;
 
-  // Extract the run mode
-  let runMode = "telegram"; // Default
-  if (
-    viewState.values.run_mode_block &&
-    viewState.values.run_mode_block.run_mode_radio &&
-    viewState.values.run_mode_block.run_mode_radio.selected_option
-  ) {
-    runMode =
-      viewState.values.run_mode_block.run_mode_radio.selected_option.value;
-  }
-
-  // Extract the token value if it exists
-  let tokenValue = "";
-  if (
-    viewState.values.token_block &&
-    viewState.values.token_block.token_input
-  ) {
-    tokenValue = viewState.values.token_block.token_input.value || "";
-  }
-
   // Check if staging is selected
   let isStaging = false;
   if (
@@ -1100,45 +856,6 @@ app.action("code_mode_radio", async ({ ack, body, client }) => {
     viewState.values.staging_block.staging_checkbox.selected_options.length > 0
   ) {
     isStaging = true;
-  }
-
-  console.log("isStaging:", isStaging);
-
-  // Build the blocks with the new code mode
-  const newBlocks = buildModalBlocks(
-    runMode,
-    tokenValue,
-    isStaging,
-    selectedCodeMode,
-  );
-
-  console.log(
-    "New blocks:",
-    JSON.stringify(newBlocks.map((b: any) => b.block_id)),
-  );
-
-  // Update the view with the completely new blocks
-  try {
-    await client.views.update({
-      view_id: viewId,
-      view: {
-        type: "modal",
-        callback_id: "bot_token_modal",
-        title: {
-          type: "plain_text",
-          text: "Configure Bot",
-        },
-        blocks: newBlocks,
-        private_metadata: privateMetadata,
-        submit: {
-          type: "plain_text",
-          text: "Submit",
-        },
-      },
-    });
-    console.log("View updated successfully");
-  } catch (error) {
-    console.error("Error updating view:", error);
   }
 });
 

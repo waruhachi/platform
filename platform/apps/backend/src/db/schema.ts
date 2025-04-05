@@ -10,12 +10,10 @@ export const chatbots = pgTable("chatbots", {
     .notNull()
     .defaultNow(),
   ownerId: text("userId").notNull(),
-  telegramBotToken: text(),
   flyAppId: text(),
   s3Checksum: text(),
   deployStatus: text().default("pending"), // pending, deploying, deployed, failed
   traceId: text(),
-  runMode: text("runMode").notNull().default("telegram"),
   typespecSchema: text(),
   receivedSuccess: boolean("receivedSuccess").notNull().default(false),
   recompileInProgress: boolean("recompileInProgress").notNull().default(false),
