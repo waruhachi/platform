@@ -2,7 +2,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { fastifySchedule } from "@fastify/schedule";
 import { CronJob, AsyncTask } from "toad-scheduler";
-import { chatbotPrompts, chatbots } from "./db/schema";
+import { appPrompts, apps } from "./db/schema";
 import { v4 as uuidv4 } from "uuid";
 import {
   S3Client,
@@ -17,9 +17,26 @@ import fs from "fs";
 import path from "path";
 import { createApiClient } from "@neondatabase/api-client";
 import { desc, eq, getTableColumns, sql, gt } from "drizzle-orm";
-import type { Paginated, Chatbot, ReadUrl } from "@repo/core/types/api";
+import type { Paginated, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 import winston from "winston";
+
+// Define the App type locally since it's not exported from @repo/core/types/api
+type App = {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  ownerId: string;
+  flyAppId?: string | null;
+  s3Checksum?: string | null;
+  deployStatus?: string | null;
+  traceId?: string | null;
+  typespecSchema?: string | null;
+  receivedSuccess: boolean;
+  recompileInProgress: boolean;
+  clientSource: string;
+};
 
 // Configure Winston logger
 const logger = winston.createLogger({
@@ -138,8 +155,8 @@ async function validateAuth(
   }
 }
 
-function getS3DirectoryParams(botId: string) {
-  const key = `bots/${botId}/source_code.zip`;
+function getS3DirectoryParams(appId: string) {
+  const key = `apps/${appId}/source_code.zip`;
   const baseParams = {
     Bucket: process.env.AWS_BUCKET_NAME!,
     Key: key,
@@ -148,9 +165,9 @@ function getS3DirectoryParams(botId: string) {
 }
 
 async function createS3DirectoryWithPresignedUrls(
-  botId: string,
+  appId: string,
 ): Promise<{ writeUrl: string; readUrl: string }> {
-  const baseParams = getS3DirectoryParams(botId);
+  const baseParams = getS3DirectoryParams(appId);
 
   const writeCommand = new PutObjectCommand(baseParams);
   const readCommand = new GetObjectCommand(baseParams);
@@ -166,9 +183,9 @@ async function createS3DirectoryWithPresignedUrls(
 }
 
 async function getReadPresignedUrls(
-  botId: string,
+  appId: string,
 ): Promise<{ readUrl: string }> {
-  const baseParams = getS3DirectoryParams(botId);
+  const baseParams = getS3DirectoryParams(appId);
 
   const readCommand = new GetObjectCommand(baseParams);
 
@@ -179,17 +196,17 @@ async function getReadPresignedUrls(
   return { readUrl };
 }
 
-async function getS3Checksum(botId: string): Promise<string | null> {
+async function getS3Checksum(appId: string): Promise<string | null> {
   try {
-    const baseParams = getS3DirectoryParams(botId);
+    const baseParams = getS3DirectoryParams(appId);
     const headCommand = new HeadObjectCommand(baseParams);
     const headResponse = await s3Client.send(headCommand);
     return headResponse.ETag?.replace(/"/g, "") || null; // Remove quotes from ETag
   } catch (error: any) {
-    // Don't log if it's just a NotFound error (expected for new bots)
+    // Don't log if it's just a NotFound error (expected for new apps)
     if (error.$metadata?.httpStatusCode !== 404) {
       logger.error("Error getting S3 checksum", {
-        botId,
+        appId,
         error,
         httpStatusCode: error.$metadata?.httpStatusCode,
       });
@@ -198,39 +215,39 @@ async function getS3Checksum(botId: string): Promise<string | null> {
   }
 }
 
-async function deployBot({
-  botId,
+async function deployApp({
+  appId,
   readUrl,
 }: {
-  botId: string;
+  appId: string;
   readUrl: string;
 }) {
   const downloadDir = path.join(process.cwd(), "downloads");
-  const zipPath = path.join(downloadDir, `${botId}.zip`);
-  const extractDir = path.join(downloadDir, botId);
+  const zipPath = path.join(downloadDir, `${appId}.zip`);
+  const extractDir = path.join(downloadDir, appId);
 
-  const bot = await db
+  const app = await db
     .select({
-      deployStatus: chatbots.deployStatus,
+      deployStatus: apps.deployStatus,
     })
-    .from(chatbots)
-    .where(eq(chatbots.id, botId));
+    .from(apps)
+    .where(eq(apps.id, appId));
 
-  if (!bot[0]) {
-    throw new Error(`Bot ${botId} not found`);
+  if (!app[0]) {
+    throw new Error(`App ${appId} not found`);
   }
 
   // deployed is okay, but deploying is not
-  if (bot[0].deployStatus === "deploying") {
-    throw new Error(`Bot ${botId} is already being deployed`);
+  if (app[0].deployStatus === "deploying") {
+    throw new Error(`App ${appId} is already being deployed`);
   }
 
   await db
-    .update(chatbots)
+    .update(apps)
     .set({
       deployStatus: "deploying",
     })
-    .where(eq(chatbots.id, botId));
+    .where(eq(apps.id, appId));
 
   // Create downloads directory
   fs.mkdirSync(downloadDir, { recursive: true });
@@ -324,7 +341,7 @@ node_modules
 `,
   );
 
-  const flyAppName = `app-${botId}`;
+  const flyAppName = `app-${appId}`;
   const envVars = {
     APP_DATABASE_URL: connectionString,
     AWS_ACCESS_KEY_ID: process.env.DEPLOYED_BOT_AWS_ACCESS_KEY_ID!,
@@ -368,17 +385,17 @@ node_modules
     { cwd: packageJsonDirectory, stdio: "inherit" },
   );
   logger.info("Fly launch completed", { flyAppName });
-  logger.info("Updating chatbots table", {
+  logger.info("Updating apps table", {
     flyAppName,
-    botId,
+    appId,
   });
 
   await db
-    .update(chatbots)
+    .update(apps)
     .set({
       flyAppId: flyAppName,
     })
-    .where(eq(chatbots.id, botId));
+    .where(eq(apps.id, appId));
 
   const flyTomlPath = path.join(packageJsonDirectory, "fly.toml");
   const flyTomlContent = fs.readFileSync(flyTomlPath, "utf8");
@@ -399,11 +416,11 @@ node_modules
   logger.info("Fly deployment completed", { flyAppName });
 
   await db
-    .update(chatbots)
+    .update(apps)
     .set({
       deployStatus: "deployed",
     })
-    .where(eq(chatbots.id, botId));
+    .where(eq(apps.id, appId));
 
   if (process.env.NODE_ENV === "production") {
     if (fs.existsSync(downloadDir)) {
@@ -424,53 +441,53 @@ export const app = fastify({
 const db = drizzle(process.env.DATABASE_URL!);
 
 const deployTask = new AsyncTask("deploy task", async (taskId) => {
-  const allBots = await db
+  const allApps = await db
     .select()
-    .from(chatbots)
-    .where(gt(chatbots.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+    .from(apps)
+    .where(gt(apps.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
 
-  for (const bot of allBots) {
+  for (const app of allApps) {
     try {
       // Get current S3 checksum
-      const currentChecksum = await getS3Checksum(bot.id);
+      const currentChecksum = await getS3Checksum(app.id);
 
       // Skip if no checksum (means no file exists) or checksum matches
-      if (!currentChecksum || currentChecksum === bot.s3Checksum) {
+      if (!currentChecksum || currentChecksum === app.s3Checksum) {
         continue;
       }
 
-      logger.info("Bot has new checksum", {
-        botId: bot.id,
+      logger.info("App has new checksum", {
+        appId: app.id,
         currentChecksum,
-        previousChecksum: bot.s3Checksum,
+        previousChecksum: app.s3Checksum,
       });
 
-      const { readUrl } = await getReadPresignedUrls(bot.id);
+      const { readUrl } = await getReadPresignedUrls(app.id);
 
       // Verify we can fetch the source code
       const response = await fetch(readUrl);
       if (!response.ok) {
         logger.error("Failed to fetch source code", {
-          botId: bot.id,
+          appId: app.id,
           statusText: response.statusText,
           status: response.status,
         });
         continue;
       }
 
-      // Deploy the bot
-      await deployBot({ botId: bot.id, readUrl });
+      // Deploy the app
+      await deployApp({ appId: app.id, readUrl });
 
       // Update the checksum in the database
       await db
-        .update(chatbots)
+        .update(apps)
         .set({
           s3Checksum: currentChecksum,
         })
-        .where(eq(chatbots.id, bot.id));
+        .where(eq(apps.id, app.id));
     } catch (error) {
-      logger.error("Error processing bot", {
-        botId: bot.id,
+      logger.error("Error processing app", {
+        appId: app.id,
         error:
           error instanceof Error
             ? {
@@ -498,7 +515,7 @@ app.ready().then(() => {
   app.scheduler.addCronJob(deployJob);
 });
 
-app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
+app.get("/apps", async (request, reply): Promise<Paginated<App>> => {
   const authCheck = await validateAuth(request, reply);
   if (authCheck) {
     return authCheck;
@@ -519,22 +536,22 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
   const pageNum = Math.max(1, Number(page));
   const offset = (pageNum - 1) * pagesize;
 
-  const { ...columns } = getTableColumns(chatbots);
+  const { ...columns } = getTableColumns(apps);
 
-  const countResultP = db.select({ count: sql`count(*)` }).from(chatbots);
+  const countResultP = db.select({ count: sql`count(*)` }).from(apps);
 
-  const botsP = db
+  const appsP = db
     .select(columns)
-    .from(chatbots)
-    .orderBy(desc(chatbots.createdAt))
+    .from(apps)
+    .orderBy(desc(apps.createdAt))
     .limit(pagesize)
     .offset(offset);
 
-  const [countResult, bots] = await Promise.all([countResultP, botsP]);
+  const [countResult, appsList] = await Promise.all([countResultP, appsP]);
 
   const totalCount = Number(countResult[0]?.count || 0);
   return {
-    data: bots,
+    data: appsList,
     pagination: {
       total: totalCount,
       page: pageNum,
@@ -544,46 +561,46 @@ app.get("/chatbots", async (request, reply): Promise<Paginated<Chatbot>> => {
   };
 });
 
-app.get("/chatbots/:id", async (request, reply): Promise<Chatbot> => {
+app.get("/apps/:id", async (request, reply): Promise<App> => {
   const authCheck = await validateAuth(request, reply);
   if (authCheck) {
     return authCheck;
   }
 
   const { id } = request.params as { id: string };
-  const { ...columns } = getTableColumns(chatbots);
-  const bot = await db
+  const { ...columns } = getTableColumns(apps);
+  const app = await db
     .select({
       ...columns,
-      s3Checksum: chatbots.s3Checksum,
+      s3Checksum: apps.s3Checksum,
     })
-    .from(chatbots)
-    .where(eq(chatbots.id, id));
-  if (!bot || !bot.length) {
+    .from(apps)
+    .where(eq(apps.id, id));
+  if (!app || !app.length) {
     return reply.status(404).send({
-      error: "Chatbot not found",
+      error: "App not found",
     });
   }
-  return reply.send(bot[0]);
+  return reply.send(app[0]);
 });
 
-app.get("/chatbots/:id/read-url", async (request, reply): Promise<ReadUrl> => {
+app.get("/apps/:id/read-url", async (request, reply): Promise<ReadUrl> => {
   const authCheck = await validateAuth(request, reply);
   if (authCheck) {
     return authCheck;
   }
 
   const { id } = request.params as { id: string };
-  const bot = await db
-    .select({ id: chatbots.id })
-    .from(chatbots)
-    .where(eq(chatbots.id, id));
-  if (!bot && !bot?.[0]) {
+  const app = await db
+    .select({ id: apps.id })
+    .from(apps)
+    .where(eq(apps.id, id));
+  if (!app && !app?.[0]) {
     return reply.status(404).send({
-      error: "Chatbot not found",
+      error: "App not found",
     });
   }
-  return getReadPresignedUrls(bot[0].id);
+  return getReadPresignedUrls(app[0].id);
 });
 
 app.post(
@@ -596,7 +613,7 @@ app.post(
         useStaging: boolean;
         useMockedAgent: boolean;
         sourceCodeFile?: { name: string; content: string };
-        botId?: string;
+        appId?: string;
         clientSource: string;
       };
     }>,
@@ -621,85 +638,85 @@ app.post(
         promptLength: prompt.length,
       });
 
-      let botId = request.body.botId;
-      if (!botId) {
-        botId = uuidv4();
-        logger.info("Generated new bot ID", { botId });
+      let appId = request.body.appId;
+      if (!appId) {
+        appId = uuidv4();
+        logger.info("Generated new app ID", { appId });
       } else {
-        logger.info("Using existing bot ID", { botId });
+        logger.info("Using existing app ID", { appId });
       }
 
       const { writeUrl, readUrl } =
-        await createS3DirectoryWithPresignedUrls(botId);
+        await createS3DirectoryWithPresignedUrls(appId);
       logger.info("Created S3 presigned URLs", {
-        botId,
+        appId,
         writeUrlExpiry: new Date(Date.now() + 3600 * 1000).toISOString(),
       });
 
-      const existingBot = await db
+      const existingApp = await db
         .select()
-        .from(chatbots)
-        .where(eq(chatbots.id, botId));
+        .from(apps)
+        .where(eq(apps.id, appId));
 
-      if (existingBot && existingBot[0]) {
-        logger.info("Found existing bot", {
-          botId,
-          receivedSuccess: existingBot[0].receivedSuccess,
-          recompileInProgress: existingBot[0].recompileInProgress,
+      if (existingApp && existingApp[0]) {
+        logger.info("Found existing app", {
+          appId,
+          receivedSuccess: existingApp[0].receivedSuccess,
+          recompileInProgress: existingApp[0].recompileInProgress,
         });
       }
 
       await db
-        .insert(chatbots)
+        .insert(apps)
         .values({
-          id: botId,
+          id: appId,
           name: prompt,
           ownerId: userId,
           clientSource,
         })
         .onConflictDoNothing({
-          target: [chatbots.id],
+          target: [apps.id],
         })
         .returning();
 
-      logger.info("Upserted bot in database", {
-        botId,
+      logger.info("Upserted app in database", {
+        appId,
         userId,
       });
 
-      await db.insert(chatbotPrompts).values({
+      await db.insert(appPrompts).values({
         id: uuidv4(),
         prompt,
-        chatbotId: botId,
+        appId: appId,
         kind: "user",
       });
-      logger.info("Inserted user prompt", { botId });
+      logger.info("Inserted user prompt", { appId });
 
       const allPrompts = await db
         .select({
-          prompt: chatbotPrompts.prompt,
-          createdAt: chatbotPrompts.createdAt,
-          kind: chatbotPrompts.kind,
+          prompt: appPrompts.prompt,
+          createdAt: appPrompts.createdAt,
+          kind: appPrompts.kind,
         })
-        .from(chatbotPrompts)
-        .where(eq(chatbotPrompts.chatbotId, botId));
+        .from(appPrompts)
+        .where(eq(appPrompts.appId, appId));
 
       logger.info("Retrieved all prompts", {
-        botId,
+        appId,
         promptCount: allPrompts.length,
         promptTypes: allPrompts.map((p) => p.kind),
       });
 
       if (allPrompts.length < 1) {
-        logger.error("No prompts found after insertion", { botId });
-        throw new Error("Failed to insert prompt into chatbot_prompts");
+        logger.error("No prompts found after insertion", { appId });
+        throw new Error("Failed to insert prompt into app_prompts");
       }
 
       try {
         // If sourceCodeFile is provided, upload it directly to S3 and skip the /prepare/compile endpoints
         if (sourceCodeFile) {
           logger.info("Starting source code file upload", {
-            botId,
+            appId,
             fileName: sourceCodeFile.name,
             contentSizeBytes: sourceCodeFile.content.length,
           });
@@ -708,7 +725,7 @@ app.post(
             // Decode the base64 content
             const fileBuffer = Buffer.from(sourceCodeFile.content, "base64");
             logger.debug("Decoded base64 content", {
-              botId,
+              appId,
               bufferSizeBytes: fileBuffer.length,
             });
 
@@ -723,7 +740,7 @@ app.post(
 
             if (!response.ok) {
               logger.error("S3 upload failed", {
-                botId,
+                appId,
                 status: response.status,
                 statusText: response.statusText,
               });
@@ -733,17 +750,17 @@ app.post(
             }
 
             logger.info("Successfully uploaded source code file", {
-              botId,
+              appId,
               status: response.status,
             });
 
             return reply.send({
-              newBot: { id: botId },
+              newApp: { id: appId },
               message: `Source code uploaded successfully`,
             });
           } catch (uploadError) {
             logger.error("Error uploading source code file", {
-              botId,
+              appId,
               error: uploadError,
             });
             throw new Error(
@@ -759,26 +776,26 @@ app.post(
               : "http://54.245.178.56:8080";
 
           logger.info("Using agent API", {
-            botId,
+            appId,
             url: AGENT_API_URL,
             useMockedAgent,
             useStaging,
           });
 
-          if (existingBot && existingBot[0] && existingBot[0].receivedSuccess) {
-            if (existingBot[0].recompileInProgress) {
+          if (existingApp && existingApp[0] && existingApp[0].receivedSuccess) {
+            if (existingApp[0].recompileInProgress) {
               logger.info("Skipping recompile - already in progress", {
-                botId,
+                appId,
               });
               return reply.send({
-                newBot: {
-                  id: botId,
+                newApp: {
+                  id: appId,
                 },
                 message: "Codegen already in progress",
               });
             }
 
-            logger.info("Starting recompile for existing bot", { botId });
+            logger.info("Starting recompile for existing app", { appId });
             const compileResponse = await fetch(`${AGENT_API_URL}/recompile`, {
               method: "POST",
               headers: {
@@ -790,12 +807,12 @@ app.post(
                 writeUrl,
                 readUrl,
                 prompts: allPrompts,
-                typespecSchema: existingBot[0].typespecSchema,
+                typespecSchema: existingApp[0].typespecSchema,
               }),
             });
 
             logger.info("Recompile response received", {
-              botId,
+              appId,
               status: compileResponse.status,
               ok: compileResponse.ok,
             });
@@ -811,11 +828,11 @@ app.post(
             } = await compileResponse.json();
 
             return reply.send({
-              newBot: { id: botId },
+              newApp: { id: appId },
               message: `Codegen started: ${compileResponseJson.message}`,
             });
           } else {
-            logger.info("Starting prepare for new bot", { botId });
+            logger.info("Starting prepare for new app", { appId });
             const prepareResponse = await fetch(`${AGENT_API_URL}/prepare`, {
               method: "POST",
               headers: {
@@ -830,7 +847,7 @@ app.post(
 
             if (!prepareResponse.ok) {
               logger.error("Prepare request failed", {
-                botId,
+                appId,
                 status: prepareResponse.status,
                 statusText: prepareResponse.statusText,
               });
@@ -849,45 +866,45 @@ app.post(
             } = await prepareResponse.json();
 
             logger.info("Prepare response received", {
-              botId,
+              appId,
               status: prepareResponseJson.status,
               hasReasoning: !!prepareResponseJson.metadata.reasoning,
               hasTypespec: !!prepareResponseJson.metadata.typespec,
             });
 
             await db
-              .update(chatbots)
+              .update(apps)
               .set({
                 typespecSchema: prepareResponseJson.metadata.typespec,
               })
-              .where(eq(chatbots.id, botId));
-            logger.info("Updated bot typespec schema", { botId });
+              .where(eq(apps.id, appId));
+            logger.info("Updated app typespec schema", { appId });
 
             if (prepareResponseJson.status === "success") {
               await db
-                .update(chatbots)
+                .update(apps)
                 .set({
                   receivedSuccess: true,
                 })
-                .where(eq(chatbots.id, botId));
-              logger.info("Marked bot as received success", { botId });
+                .where(eq(apps.id, appId));
+              logger.info("Marked app as received success", { appId });
             }
 
-            await db.insert(chatbotPrompts).values({
+            await db.insert(appPrompts).values({
               id: uuidv4(),
               prompt: prepareResponseJson.metadata.reasoning,
-              chatbotId: botId,
+              appId: appId,
               kind: "agent",
             });
-            logger.info("Inserted agent reasoning prompt", { botId });
+            logger.info("Inserted agent reasoning prompt", { appId });
 
             // Deploy an under-construction page to the fly app
             const underConstructionImage =
               "registry.fly.io/under-construction:deployment-01JQ4JD8TKSW37KP9MR44B3DNB";
-            const flyAppName = `app-${botId}`;
+            const flyAppName = `app-${appId}`;
 
             logger.info("Deploying under-construction page", {
-              botId,
+              appId,
               flyAppName,
               image: underConstructionImage,
             });
@@ -898,23 +915,23 @@ app.post(
                 { stdio: "inherit" },
               );
               logger.info("Successfully deployed under-construction page", {
-                botId,
+                appId,
                 flyAppName,
               });
             } catch (error) {
               logger.error("Error deploying under-construction page", {
-                botId,
+                appId,
                 error: error instanceof Error ? error.message : String(error),
               });
               return reply.send({
-                newBot: { id: botId },
+                newApp: { id: appId },
                 message: `Failed to deploy under-construction page: ${error}`,
               });
             }
 
             return reply.send({
-              newBot: {
-                id: botId,
+              newApp: {
+                id: appId,
               },
               message:
                 prepareResponseJson.message +
@@ -923,23 +940,23 @@ app.post(
           }
         }
       } catch (error) {
-        logger.error("Error compiling bot", {
-          botId,
+        logger.error("Error compiling app", {
+          appId,
           error,
           errorMessage: error instanceof Error ? error.message : String(error),
         });
         return reply
           .status(400)
-          .send({ error: `Failed to compile bot: ${error}` });
+          .send({ error: `Failed to compile app: ${error}` });
       }
     } catch (error) {
-      logger.error("Error generating bot", {
+      logger.error("Error generating app", {
         error,
         errorMessage: error instanceof Error ? error.message : String(error),
       });
       return reply
         .status(400)
-        .send({ error: `Failed to generate bot: ${error}` });
+        .send({ error: `Failed to generate app: ${error}` });
     }
   },
 );

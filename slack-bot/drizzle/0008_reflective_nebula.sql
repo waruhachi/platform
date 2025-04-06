@@ -1,0 +1,1 @@
+ALTER TABLE "threads" RENAME COLUMN "chatbotId" TO "appId";

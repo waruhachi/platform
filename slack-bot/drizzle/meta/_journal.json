@@ -57,6 +57,13 @@
       "when": 1743874766389,
       "tag": "0007_pale_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1743960975961,
+      "tag": "0008_reflective_nebula",
+      "breakpoints": true
     }
   ]
 }

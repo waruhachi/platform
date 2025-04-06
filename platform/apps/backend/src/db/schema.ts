@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 
-export const chatbots = pgTable("chatbots", {
+export const apps = pgTable("apps", {
   id: uuid("id").primaryKey(),
   name: text("name").notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true })
@@ -20,9 +20,9 @@ export const chatbots = pgTable("chatbots", {
   clientSource: text("clientSource").notNull().default("slack"), // "slack" or "cli"
 });
 
-export const chatbotPrompts = pgTable("chatbot_prompts", {
+export const appPrompts = pgTable("app_prompts", {
   id: uuid("id").primaryKey(),
-  chatbotId: uuid("chatbotId").references(() => chatbots.id),
+  appId: uuid("appId").references(() => apps.id),
   prompt: text("prompt").notNull(),
   createdAt: timestamp("createdAt", { withTimezone: true })
     .notNull()

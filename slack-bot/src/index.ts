@@ -34,92 +34,75 @@ const app = new App({
 const job = CronJob.from({
   cronTime: "*/30 * * * * *", // every 30 seconds
   onTick: async function () {
-    const undeployedBots = await db
+    const undeployedApps = await db
       .select()
       .from(threads)
-      .where(and(eq(threads.deployed, false), isNotNull(threads.chatbotId)));
+      .where(and(eq(threads.deployed, false), isNotNull(threads.appId)));
 
-    for (const bot of undeployedBots) {
-      const botStatus = await fetch(
-        `${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`,
+    for (const thread of undeployedApps) {
+      const appStatus = await fetch(
+        `${BACKEND_API_HOST}/apps/${thread.appId}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
           },
         },
       );
-      const botStatusJson = await botStatus.json();
+      const appStatusJson = await appStatus.json();
 
       // Check for initial deployment
-      if (botStatusJson.flyAppId && !bot.deployed) {
+      if (appStatusJson.flyAppId && !thread.deployed) {
         await app.client.chat.postMessage({
-          channel: bot.channelId || "",
-          thread_ts: bot.threadTs,
-          text: `✅ The bot has been successfully deployed, go and talk to it!
-Download the code here: ${botStatusJson.readUrl}`,
+          channel: thread.channelId || "",
+          thread_ts: thread.threadTs,
+          text: `✅ The app has been successfully deployed, go and talk to it!
+Download the code here: ${appStatusJson.readUrl}`,
         });
 
         await db
           .update(threads)
           .set({
             deployed: true,
-            s3Checksum: botStatusJson.s3Checksum,
+            s3Checksum: appStatusJson.s3Checksum,
+            appId: appStatusJson.appId,
           })
-          .where(eq(threads.threadTs, bot.threadTs));
-      }
-      // Check for code changes in already deployed bots
-      else if (
-        botStatusJson.s3Checksum &&
-        botStatusJson.s3Checksum !== bot.s3Checksum
-      ) {
-        await app.client.chat.postMessage({
-          channel: bot.channelId || "",
-          thread_ts: bot.threadTs,
-          text: `🔄 Your bot's code has been updated and is being redeployed!`,
-        });
-
-        await db
-          .update(threads)
-          .set({
-            s3Checksum: botStatusJson.s3Checksum,
-          })
-          .where(eq(threads.threadTs, bot.threadTs));
+          .where(eq(threads.threadTs, thread.threadTs));
       }
     }
 
-    // Also check deployed bots for code changes
-    const deployedBots = await db
+    // Also check deployed apps for code changes
+    const deployedApps = await db
       .select()
       .from(threads)
-      .where(and(eq(threads.deployed, true), isNotNull(threads.chatbotId)));
+      .where(and(eq(threads.deployed, true), isNotNull(threads.appId)));
 
-    for (const bot of deployedBots) {
-      const botStatus = await fetch(
-        `${BACKEND_API_HOST}/chatbots/${bot.chatbotId}`,
+    for (const thread of deployedApps) {
+      const appStatus = await fetch(
+        `${BACKEND_API_HOST}/apps/${thread.appId}`,
         {
           headers: {
             Authorization: `Bearer ${process.env.BACKEND_API_SECRET}`,
           },
         },
       );
-      const botStatusJson = await botStatus.json();
+      const appStatusJson = await appStatus.json();
 
       if (
-        botStatusJson.s3Checksum &&
-        botStatusJson.s3Checksum !== bot.s3Checksum
+        appStatusJson.s3Checksum &&
+        appStatusJson.s3Checksum !== thread.s3Checksum
       ) {
         await app.client.chat.postMessage({
-          channel: bot.channelId || "",
-          thread_ts: bot.threadTs,
-          text: `🔄 Your bot's code has been updated and is being redeployed!`,
+          channel: thread.channelId || "",
+          thread_ts: thread.threadTs,
+          text: `🔄 Your app's code has been updated and is being redeployed!`,
         });
 
         await db
           .update(threads)
           .set({
-            s3Checksum: botStatusJson.s3Checksum,
+            s3Checksum: appStatusJson.s3Checksum,
           })
-          .where(eq(threads.threadTs, bot.threadTs));
+          .where(eq(threads.threadTs, thread.threadTs));
       }
     }
   },
@@ -189,14 +172,14 @@ async function downloadFileFromSlack(
   }
 }
 
-async function chatbotIteration({
+async function appIteration({
   prompt,
   channelId,
   threadTs,
   userId,
   useStaging,
   sourceCodeFileId,
-  botId,
+  appId,
 }: {
   prompt: string;
   channelId: string;
@@ -204,7 +187,7 @@ async function chatbotIteration({
   userId: string;
   useStaging: boolean;
   sourceCodeFileId?: string;
-  botId?: string;
+  appId?: string;
 }) {
   try {
     console.log("calling generate endpoint");
@@ -213,7 +196,7 @@ async function chatbotIteration({
       prompt,
       userId,
       useStaging,
-      botId,
+      appId,
       clientSource: "slack",
     };
 
@@ -262,7 +245,7 @@ async function chatbotIteration({
 
       if (response.ok) {
         const generateResult: {
-          newBot: {
+          newApp: {
             id: string;
           };
           message: string;
@@ -270,19 +253,19 @@ async function chatbotIteration({
 
         console.log("generateResult", generateResult);
 
-        const chatbotId = generateResult.newBot.id;
+        const appId = generateResult.newApp.id;
 
-        // Update the initial message to include the chatbot ID
+        // Update the initial message to include the app ID
         await app.client.chat.postMessage({
           channel: channelId,
           thread_ts: threadTs,
-          text: `[Chatbot ID: ${chatbotId}] ${generateResult.message}`,
+          text: `[App ID: ${appId}] ${generateResult.message}`,
         });
 
         await db
           .update(threads)
           .set({
-            chatbotId: chatbotId,
+            appId: appId,
           })
           .where(eq(threads.threadTs, threadTs));
       } else {
@@ -291,7 +274,7 @@ async function chatbotIteration({
         await app.client.chat.postMessage({
           channel: channelId,
           thread_ts: threadTs,
-          text: `There was an error while deploying the bot: ${errorMessage}`,
+          text: `There was an error while deploying the app: ${errorMessage}`,
         });
       }
     } catch (fetchError) {
@@ -303,7 +286,7 @@ async function chatbotIteration({
       });
     }
   } catch (error) {
-    console.error("Unexpected error in chatbotIteration:", error);
+    console.error("Unexpected error in appIteration:", error);
 
     if (error instanceof DOMException && error.name === "TimeoutError") {
       await app.client.chat.postMessage({
@@ -327,7 +310,7 @@ async function chatbotIteration({
   }
 }
 
-async function handleBotGeneration({
+async function handleAppGeneration({
   channelId,
   userId,
   prompt,
@@ -370,7 +353,7 @@ async function handleBotGeneration({
     useStaging: useStaging,
   });
 
-  chatbotIteration({
+  appIteration({
     prompt,
     channelId,
     threadTs,
@@ -423,12 +406,12 @@ app.message("", async ({ event, logger }) => {
 
   const thread = threadResult[0];
 
-  chatbotIteration({
+  appIteration({
     prompt,
     channelId: event.channel,
     threadTs: thread.threadTs,
     userId: event.user,
-    botId: thread.chatbotId || undefined, // Use the stored botId value
+    appId: thread.appId || undefined, // Use the stored appId value
     useStaging: thread.useStaging ?? false, // Use the stored useStaging value with a default
   });
 });
@@ -473,10 +456,10 @@ app.event("message", async ({ event, client, message }) => {
             type: "button",
             text: {
               type: "plain_text",
-              text: "Create Bot",
+              text: "Create App",
               emoji: true,
             },
-            action_id: "open_bot_modal",
+            action_id: "open_app_modal",
             value: JSON.stringify({
               prompt,
               channelId: event.channel,
@@ -491,7 +474,7 @@ app.event("message", async ({ event, client, message }) => {
 });
 
 // Add this handler for the button click
-app.action("open_bot_modal", async ({ ack, body, client }) => {
+app.action("open_app_modal", async ({ ack, body, client }) => {
   await ack();
 
   // Type assertion for body to access actions property
@@ -500,7 +483,7 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
     actionBody.actions[0].value,
   );
 
-  console.log("open_bot_modal action triggered");
+  console.log("open_app_modal action triggered");
   console.log(
     "Action body structure:",
     JSON.stringify(Object.keys(actionBody)),
@@ -532,10 +515,10 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
     trigger_id: actionBody.trigger_id,
     view: {
       type: "modal",
-      callback_id: "bot_modal",
+      callback_id: "app_modal",
       title: {
         type: "plain_text",
-        text: "Configure Bot",
+        text: "Configure App",
       },
       blocks,
       private_metadata: JSON.stringify({
@@ -554,7 +537,7 @@ app.action("open_bot_modal", async ({ ack, body, client }) => {
 });
 
 // Add this handler to process the modal submission
-app.view("bot_modal", async ({ ack, body, view, client }) => {
+app.view("app_modal", async ({ ack, body, view, client }) => {
   await ack();
 
   const { prompt, channelId, userId, threadTs, messageTs } = JSON.parse(
@@ -637,7 +620,7 @@ app.view("bot_modal", async ({ ack, body, view, client }) => {
     ],
   });
 
-  await handleBotGeneration({
+  await handleAppGeneration({
     channelId,
     userId,
     prompt,
@@ -792,10 +775,10 @@ app.action("code_mode_radio", async ({ ack, body, client }) => {
     view_id: viewId,
     view: {
       type: "modal",
-      callback_id: "bot_modal",
+      callback_id: "app_modal",
       title: {
         type: "plain_text",
-        text: "Configure Bot",
+        text: "Configure App",
       },
       blocks,
       private_metadata: privateMetadata,
