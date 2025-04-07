@@ -1,18 +1,18 @@
 import { Box, Text } from 'ink';
-import { useChatbot, useGenerateChatbot } from './use-chatbot.js';
+import { useApplication, useGenerateApp } from './use-application.js';
 import { useRouteParams } from '../routes.js';
-import { getStatusEmoji, getStatusColor } from './chatbots-list-screen.js';
+import { getStatusEmoji, getStatusColor } from './apps-list-screen.js';
 import { InfiniteFreeText } from '../components/shared/free-text.js';
 import { Panel } from '../components/shared/panel.js';
 
-export function ChatbotDetails() {
-  const { chatbotId } = useRouteParams('/chatbots/:chatbotId');
-  const { data: chatbot, isLoading, error } = useChatbot(chatbotId);
+export function AppDetails() {
+  const { appId } = useRouteParams('/apps/:appId');
+  const { data: app, isLoading, error } = useApplication(appId);
   const {
-    mutate: generateChatbotIteration,
-    status: generateChatbotIterationStatus,
-    error: generateChatbotIterationError,
-  } = useGenerateChatbot();
+    mutate: generateAppIteration,
+    status: generateAppIterationStatus,
+    error: generateAppIterationError,
+  } = useGenerateApp();
 
   if (isLoading) {
     return <Text>Loading...</Text>;
@@ -22,24 +22,24 @@ export function ChatbotDetails() {
     return <Text color="red">Error: {error.message}</Text>;
   }
 
-  if (!chatbot) {
-    return <Text>Bot not found</Text>;
+  if (!app) {
+    return <Text>Application not found</Text>;
   }
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Panel title="📋 Bot Details" variant="info">
+      <Panel title="📋 Application Details" variant="info">
         <Box flexDirection="column" gap={1}>
           <Text>
             <Text color="gray">Name: </Text>
-            <Text bold>{chatbot.name}</Text>
+            <Text bold>{app.name}</Text>
           </Text>
 
           <Text>
             <Text color="gray">Status: </Text>
-            {getStatusEmoji(chatbot.deployStatus)}{' '}
-            <Text color={getStatusColor(chatbot.deployStatus)} bold>
-              {chatbot.deployStatus}
+            {getStatusEmoji(app.deployStatus)}{' '}
+            <Text color={getStatusColor(app.deployStatus)} bold>
+              {app.deployStatus}
             </Text>
           </Text>
 
@@ -48,9 +48,9 @@ export function ChatbotDetails() {
             <Text bold>🌐 HTTP Server</Text>
           </Text>
 
-          {chatbot.recompileInProgress && (
+          {app.recompileInProgress && (
             <Box marginTop={1}>
-              <Text color="yellow">⚡️ Bot is recompiling...</Text>
+              <Text color="yellow">⚡️ Application is recompiling...</Text>
             </Box>
           )}
         </Box>
@@ -59,17 +59,17 @@ export function ChatbotDetails() {
       <Box marginTop={2}>
         <InfiniteFreeText
           successMessage="Changes applied successfully"
-          question="How would you like to modify your chatbot?"
+          question="How would you like to modify your app?"
           placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
           onSubmit={(text: string) =>
-            generateChatbotIteration({
+            generateAppIteration({
               prompt: text,
-              ...chatbot,
+              ...app,
               useStaging: false,
             })
           }
-          status={generateChatbotIterationStatus}
-          errorMessage={generateChatbotIterationError?.message}
+          status={generateAppIterationStatus}
+          errorMessage={generateAppIterationError?.message}
           loadingText="Applying changes..."
           retryMessage="Please retry."
         />

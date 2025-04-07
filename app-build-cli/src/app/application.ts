@@ -24,7 +24,7 @@ function generateMachineId(): string {
   return machineInfo;
 }
 
-export type Chatbot = {
+export type App = {
   id: string;
   name: string;
   createdAt: Date;
@@ -40,29 +40,26 @@ export type Chatbot = {
   clientSource: 'slack' | 'cli';
 };
 
-export type ChatbotGenerationParams = {
+export type AppGenerationParams = {
   useStaging: boolean;
   prompt: string;
-  botId?: string;
+  appId?: string;
 };
 
-export type ChatBotSpecsGenerationParams = Omit<
-  ChatbotGenerationParams,
-  'botId'
->;
+export type AppSpecsGenerationParams = Omit<AppGenerationParams, 'appId'>;
 
-export type ChatbotGenerationResult = {
-  chatbotId: string;
+export type AppGenerationResult = {
+  appId: string;
   message: string;
 };
 
-export const generateChatbot = async (params: ChatbotGenerationParams) => {
+export const generateApp = async (params: AppGenerationParams) => {
   try {
     const requestBody = {
       prompt: params.prompt,
       userId: generateMachineId(),
       useStaging: params.useStaging,
-      botId: params.botId,
+      appId: params.appId,
       clientSource: 'cli',
       useMockedAgent: process.env.USE_MOCKED_AGENT === 'true',
     };
@@ -77,19 +74,19 @@ export const generateChatbot = async (params: ChatbotGenerationParams) => {
 
     if (response.ok) {
       const generateResult: {
-        newBot: {
+        newApp: {
           id: string;
         };
         message: string;
       } = (await response.json()) as {
-        newBot: {
+        newApp: {
           id: string;
         };
         message: string;
       };
 
       return {
-        chatbotId: generateResult.newBot.id,
+        appId: generateResult.newApp.id,
         message: generateResult.message,
         readUrl: '',
       };
@@ -111,53 +108,53 @@ export const generateChatbot = async (params: ChatbotGenerationParams) => {
   }
 };
 
-export const generateChatbotSpec = async (
-  params: ChatBotSpecsGenerationParams
+export const generateAppSpec = async (
+  params: AppSpecsGenerationParams
 ): Promise<{
-  chatbotId: string;
+  appId: string;
   message: string;
   readUrl: string;
 }> => {
-  return generateChatbot({ ...params, botId: undefined });
+  return generateApp({ ...params, appId: undefined });
 };
 
-export const getChatbot = async (chatbotId: string) => {
+export const getApp = async (appId: string) => {
   try {
-    const botStatus = await fetch(`${BACKEND_API_HOST}/chatbots/${chatbotId}`, {
+    const appStatus = await fetch(`${BACKEND_API_HOST}/apps/${appId}`, {
       headers: {
         // TODO: remove this
         Authorization: `Bearer ${BACKEND_BEARER_TOKEN}`,
       },
     });
 
-    const botStatusJson = (await botStatus.json()) as Chatbot & {
+    const appStatusJson = (await appStatus.json()) as App & {
       readUrl: string;
     };
 
     return {
-      isDeployed: botStatusJson.deployStatus === 'deployed',
-      ...botStatusJson,
+      isDeployed: appStatusJson.deployStatus === 'deployed',
+      ...appStatusJson,
     };
   } catch (error) {
-    console.error('Error checking bot deployment status:', error);
+    console.error('Error checking app deployment status:', error);
     throw error;
   }
 };
 
-export const listChatBots = async () => {
+export const listApps = async () => {
   try {
-    const response = await fetch(`${BACKEND_API_HOST}/chatbots`, {
+    const response = await fetch(`${BACKEND_API_HOST}/apps`, {
       headers: {
         Authorization: `Bearer ${BACKEND_BEARER_TOKEN}`,
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch chatbots: ${response.statusText}`);
+      throw new Error(`Failed to fetch applications: ${response.statusText}`);
     }
 
-    const chatbots = (await response.json()) as {
-      data: Chatbot[];
+    const apps = (await response.json()) as {
+      data: App[];
       pagination: {
         total: number;
         page: number;
@@ -165,9 +162,9 @@ export const listChatBots = async () => {
         totalPages: number;
       };
     };
-    return chatbots;
+    return apps;
   } catch (error) {
-    console.error('Error fetching chatbots:', error);
+    console.error('Error fetching applications:', error);
     throw error;
   }
 };

@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { InfiniteFreeText } from '../../components/shared/free-text.js';
 import { ProgressSteps } from '../../components/ui/progress-steps.js';
-import { type ChatbotGenerationResult } from '../chatbot.js';
-import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
-import { useCreateChatbotWizardStore } from '../store.js';
+import { type AppGenerationResult } from '../application.js';
+import { useApplication, useGenerateApp } from '../use-application.js';
+import { useCreateAppWizardStore } from '../store.js';
 import { useSafeSearchParams } from '../../routes.js';
 
 const buildSteps = [
@@ -18,7 +18,7 @@ const buildSteps = [
   },
   {
     message: '⚡ Generating TypeScript code...',
-    detail: '🔧 Creating type-safe implementations of your bot logic',
+    detail: '🔧 Creating type-safe implementations of your app logic',
   },
   {
     message: '🚀 Compiling TypeScript...',
@@ -26,7 +26,7 @@ const buildSteps = [
   },
   {
     message: '🧪 Generating test suites...',
-    detail: '🎯 Creating comprehensive tests for your bot',
+    detail: '🎯 Creating comprehensive tests for your app',
   },
   {
     message: '🛠️  Implementing handlers...',
@@ -39,39 +39,36 @@ const buildSteps = [
 ];
 
 export type GenerateStepProps = {
-  onSuccess: (bot: ChatbotGenerationResult) => void;
+  onSuccess: (app: AppGenerationResult) => void;
 };
 
 export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
-  const config = useCreateChatbotWizardStore((s) => s.config);
-  const [{ chatbotId }] = useSafeSearchParams('/chatbot/create');
+  const config = useCreateAppWizardStore((s) => s.config);
+  const [{ appId }] = useSafeSearchParams('/app/create');
 
-  const chatbotMessageHistory = useCreateChatbotWizardStore(
-    (s) => s.chatbotMessageHistory
-  );
+  const appMessageHistory = useCreateAppWizardStore((s) => s.appMessageHistory);
 
   const [currentStep, setCurrentStep] = useState(0);
   const {
-    mutate: generateChatbot,
-    error: generateChatbotError,
-    data: generateChatbotData,
-    status: generateChatbotStatus,
-  } = useGenerateChatbot();
-  const { data: chatbot } = useChatbot(chatbotId, {
+    mutate: generateApp,
+    error: generateAppError,
+    data: generateAppData,
+    status: generateAppStatus,
+  } = useGenerateApp();
+  const { data: app } = useApplication(appId, {
     refetchInterval: 5_000,
   });
 
-  const isWaitingForSpecsApproval =
-    !chatbot?.isDeployed && !generateChatbotData;
+  const isWaitingForSpecsApproval = !app?.isDeployed && !generateAppData;
 
   useEffect(() => {
-    if (isWaitingForSpecsApproval || !chatbot || !chatbotId) {
+    if (isWaitingForSpecsApproval || !app || !appId) {
       return;
     }
 
     // Handle successful deployment
-    if (chatbot?.isDeployed && generateChatbotData) {
-      onSuccess(generateChatbotData);
+    if (app?.isDeployed && generateAppData) {
+      onSuccess(generateAppData);
       return;
     }
 
@@ -92,15 +89,9 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
         clearInterval(stepInterval);
       }
     };
-  }, [
-    chatbot,
-    chatbotId,
-    generateChatbotData,
-    isWaitingForSpecsApproval,
-    onSuccess,
-  ]);
+  }, [app, appId, generateAppData, isWaitingForSpecsApproval, onSuccess]);
 
-  if (!chatbot) return <Text>Bot not found</Text>;
+  if (!app) return <Text>App not found</Text>;
 
   if (isWaitingForSpecsApproval) {
     return (
@@ -114,30 +105,30 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
         >
           <Box marginBottom={1}>
             <Text color="blue" bold>
-              Generated Chatbot Specification
+              Generated App Specification
             </Text>
           </Box>
-          <Text>{chatbotMessageHistory['specs'].at(-1)}</Text>
+          <Text>{appMessageHistory['specs'].at(-1)}</Text>
         </Box>
 
         <Box marginBottom={1}>
           <Text>
-            Would you like to proceed with deploying this chatbot with these
+            Would you like to proceed with deploying this app with these
             specifications?
           </Text>
         </Box>
 
         <Box marginTop={1} gap={1}>
           <InfiniteFreeText
-            successMessage="Chatbot deployed successfully"
-            status={generateChatbotStatus}
-            errorMessage={generateChatbotError?.message}
+            successMessage="App deployed successfully"
+            status={generateAppStatus}
+            errorMessage={generateAppError?.message}
             retryMessage="Please retry."
-            loadingText="Deploying your chatbot..."
+            loadingText="Deploying your app..."
             question="Type 'yes' to deploy or provide feedback to modify the specifications:"
             placeholder="e.g., yes or I want to add more features..."
             onSubmit={() => {
-              generateChatbot({ ...config, botId: chatbot.id });
+              generateApp({ ...config, appId: app.id });
             }}
           />
         </Box>
@@ -145,7 +136,7 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
     );
   }
 
-  if (!chatbot.isDeployed) {
+  if (!app.isDeployed) {
     return (
       <Box flexDirection="column">
         <Box
@@ -156,9 +147,9 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
           marginBottom={1}
         >
           <Box marginBottom={1}>
-            <Text dimColor>Bot ID: </Text>
+            <Text dimColor>App ID: </Text>
             <Text color="yellow" bold>
-              {chatbot.id}
+              {app.id}
             </Text>
           </Box>
         </Box>
@@ -166,18 +157,16 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
         <ProgressSteps
           steps={buildSteps}
           currentStep={currentStep}
-          isDeployed={chatbot.isDeployed}
+          isDeployed={app.isDeployed}
         />
 
         <Box marginTop={1}>
           <Text dimColor italic>
-            {chatbot.isDeployed
-              ? '🎉 Deployment completed successfully!'
-              : buildSteps[currentStep]?.detail || 'Preparing your chatbot...'}
+            {app.isDeployed ? '🎉 Deployment completed successfully!' : ''}
           </Text>
         </Box>
 
-        {chatbot.readUrl && (
+        {app.readUrl && (
           <Box
             marginTop={1}
             flexDirection="column"
@@ -186,9 +175,9 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
             padding={1}
           >
             <Text color="green">
-              🌐 Your bot is available at:{' '}
+              🌐 Your app is available at:{' '}
               <Text bold underline>
-                {chatbot?.readUrl}
+                {app?.readUrl}
               </Text>
             </Text>
           </Box>
@@ -196,7 +185,7 @@ export const GenerateStep = ({ onSuccess }: GenerateStepProps) => {
 
         <Box marginTop={2}>
           <Text dimColor italic>
-            🔄 Please wait while we set up your chatbot...
+            🔄 Please wait while we set up your app...
           </Text>
         </Box>
       </Box>

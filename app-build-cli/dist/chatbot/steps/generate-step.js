@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { InfiniteFreeText } from '../../components/shared/free-text.js';
 import { ProgressSteps } from '../../components/ui/progress-steps.js';
-import {} from '../chatbot.js';
-import { useChatbot, useGenerateChatbot } from '../use-chatbot.js';
+import {} from '../application.js';
+import { useChatbot, useGenerateChatbot } from '../use-app.js';
 import { useCreateChatbotWizardStore } from '../store.js';
 import { useSafeSearchParams } from '../../routes.js';
 const buildSteps = [

@@ -10,15 +10,18 @@ import {
 } from 'react-router';
 import queryString from 'query-string';
 
-import { ChatbotsListScreen } from './chatbot/chatbots-list-screen.js';
-import { CreateChatbotScreen } from './chatbot/create-chatbot-screen.js';
-import { ChatbotHomeScreen } from './chatbot/chatbot-home-screen.js';
+import { AppHomeScreen } from './app/app-home-screen.js';
+import { CreateAppScreen } from './app/create-app-screen.js';
+import { AppsListScreen } from './app/apps-list-screen.js';
+import { AppDetails } from './app/app-details.js';
 
 import { z, ZodObject, ZodType } from 'zod';
-import { steps, type StepType } from './chatbot/steps/steps.js';
+import {
+  steps as appSteps,
+  type StepType as AppStepType,
+} from './app/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
-import { ChatbotDetails } from './chatbot/chatbot-details.js';
 import { Banner } from './components/ui/banner.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
@@ -63,25 +66,25 @@ type RouteParams<T extends RoutePath> = Record<
 const ROUTES_DEFINITIONS = [
   {
     path: '/' as const,
-    element: <ChatbotHomeScreen />,
+    element: <AppHomeScreen />,
   },
   {
-    path: '/chatbot/create' as const,
-    element: <CreateChatbotScreen />,
+    path: '/app/create' as const,
+    element: <CreateAppScreen />,
     searchParams: {
       step: z
-        .enum(Object.keys(steps) as [StepType, ...StepType[]])
+        .enum(Object.keys(appSteps) as [AppStepType, ...AppStepType[]])
         .default('environment'),
-      chatbotId: z.string().optional(),
+      appId: z.string().optional(),
     },
   },
   {
-    path: '/chatbots' as const,
-    element: <ChatbotsListScreen />,
+    path: '/apps' as const,
+    element: <AppsListScreen />,
   },
   {
-    path: '/chatbots/:chatbotId' as const,
-    element: <ChatbotDetails />,
+    path: '/apps/:appId' as const,
+    element: <AppDetails />,
   },
 ] satisfies Array<RouteType>;
 

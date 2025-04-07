@@ -1,7 +1,7 @@
 export const steps = {
   environment: {
     label: 'Environment Selection',
-    question: 'Choose where your chatbot will run:',
+    question: 'Choose where your app will run:',
     options: [
       {
         label: '🚀 Production - For live deployment',
@@ -9,26 +9,26 @@ export const steps = {
       },
       { label: '🔧 Staging - For testing', value: 'staging' as const },
     ],
-    nextStep: 'generateChatbotSpecs' as const,
+    nextStep: 'generateAppSpecs' as const,
   },
-  generateChatbotSpecs: {
-    label: "Let's Create Your Chatbot",
-    question: 'Generating the specs for your chatbot...',
-    nextStep: 'generateChatbot' as const,
+  generateAppSpecs: {
+    label: "Let's Create Your App",
+    question: 'Generating the specs for your app...',
+    nextStep: 'generateApp' as const,
   },
-  generateChatbot: {
-    label: 'Building Your Chatbot',
-    question: 'Generating your chatbot...',
+  generateApp: {
+    label: 'Building Your App',
+    question: 'Generating your application...',
     nextStep: 'successGeneration' as const,
   },
   successGeneration: {
     label: 'Deployment Complete',
-    question: 'Chatbot created successfully!',
+    question: 'App created successfully!',
     nextStep: 'successGeneration' as const,
   },
 };
 
-export type ChatBotConfig = {
+export type AppConfig = {
   useStaging: boolean;
   prompt: string;
 };

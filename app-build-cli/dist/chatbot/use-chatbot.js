@@ -21,13 +21,17 @@ export const useListChatBots = () => {
 };
 export const useGenerateChatbotSpecs = (options = {}) => {
     const queryClient = useQueryClient();
-    const [searchParams, setSearchParams] = useSafeSearchParams('/chatbot/create');
+    const [searchParams, setSearchParams] = useSafeSearchParams('/app/create');
     return useMutation({
         mutationFn: (params) => {
             return generateChatbotSpec(params);
         },
         onSuccess: (data, params) => {
-            setSearchParams({ ...searchParams, chatbotId: data.chatbotId });
+            setSearchParams({
+                ...searchParams,
+                appId: data.chatbotId,
+                step: 'generateApp',
+            });
             void queryClient.invalidateQueries({
                 queryKey: queryKeys.chatbot(data.chatbotId),
             });

@@ -3,23 +3,23 @@ import { Select } from '../components/shared/select.js';
 import { useSafeNavigate, type RoutePath } from '../routes.js';
 
 const items = [
-  { label: '🆕 Create new chatbot', value: '/chatbot/create' as const },
+  { label: '🆕 Create new app', value: '/app/create' as const },
   {
-    label: '📋 List and iterate existing chatbots',
-    value: '/chatbots' as const,
+    label: '📋 List and iterate existing applications',
+    value: '/apps' as const,
   },
 ] satisfies Array<{
   label: string;
   value: RoutePath;
 }>;
 
-export function ChatbotHomeScreen() {
+export function AppHomeScreen() {
   const { safeNavigate } = useSafeNavigate();
 
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
-        <Text bold>🤖 Chatbot Manager</Text>
+        <Text bold>🤖 App Manager</Text>
       </Box>
       <Select
         question="What would you like to do?"

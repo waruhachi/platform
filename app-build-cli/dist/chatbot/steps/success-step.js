@@ -1,18 +1,18 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { Box } from 'ink';
+import { Box, useApp } from 'ink';
 import { Text } from 'ink';
-import { useChatbot } from '../use-chatbot.js';
+import { useChatbot } from '../use-app.js';
 import React from 'react';
 import { useSafeNavigate } from '../../routes.js';
-export const SuccessStep = ({ chatbotId }) => {
-    const { data: chatbot } = useChatbot(chatbotId);
+export const SuccessStep = ({ appId }) => {
+    const { data: app } = useApp(appId);
     const { safeNavigate } = useSafeNavigate();
     React.useEffect(() => {
         const timeout = setTimeout(() => {
             safeNavigate({
-                path: '/chatbots/:chatbotId',
+                path: '/apps/:appId',
                 params: {
-                    chatbotId,
+                    appId,
                 },
             });
         }, 1_000);

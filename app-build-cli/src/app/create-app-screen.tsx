@@ -5,11 +5,11 @@ import { GenerateStep } from './steps/generate-step.js';
 import { SuccessStep } from './steps/success-step.js';
 import { steps } from './steps/steps.js';
 import { WizardHistory } from '../components/ui/wizard-history.js';
-import { useCreateChatbotWizardStore } from './store.js';
-import type { ChatbotGenerationResult } from './chatbot.js';
+import { useCreateAppWizardStore } from './store.js';
+import type { AppGenerationResult } from './application.js';
 import { useSafeNavigate, useSafeSearchParams } from '../routes.js';
 
-export const CreateChatbotScreen = () => {
+export const CreateAppScreen = () => {
   return (
     <Box flexDirection="column">
       <WizardHistory />
@@ -19,11 +19,11 @@ export const CreateChatbotScreen = () => {
 };
 
 function StepContent() {
-  const { setConfig, addToHistory, addMessageToChatbotHistory } =
-    useCreateChatbotWizardStore();
+  const { setConfig, addToHistory, addMessageToAppHistory } =
+    useCreateAppWizardStore();
 
   const { safeNavigate } = useSafeNavigate();
-  const [{ step, chatbotId }] = useSafeSearchParams('/chatbot/create');
+  const [{ step, appId }] = useSafeSearchParams('/app/create');
 
   const handleEnvironmentSubmit = (environment: string) => {
     setConfig({
@@ -35,34 +35,34 @@ function StepContent() {
         ?.label || environment
     );
     safeNavigate({
-      path: '/chatbot/create',
+      path: '/app/create',
       searchParams: { step: steps.environment.nextStep },
     });
   };
 
-  const handleGenerateBotSpecsSuccess = (
-    botSpecs: ChatbotGenerationResult,
+  const handleGenerateAppSpecsSuccess = (
+    appSpecs: AppGenerationResult,
     prompt: string
   ) => {
     setConfig({ prompt });
-    addToHistory('What kind of chatbot would you like to create?', prompt);
-    addMessageToChatbotHistory('specs', botSpecs.message);
+    addToHistory('What kind of app would you like to create?', prompt);
+    addMessageToAppHistory('specs', appSpecs.message);
     safeNavigate({
-      path: '/chatbot/create',
+      path: '/app/create',
       searchParams: {
-        step: steps.generateChatbotSpecs.nextStep,
-        chatbotId: botSpecs.chatbotId,
+        step: steps.generateAppSpecs.nextStep,
+        appId: appSpecs.appId,
       },
     });
   };
 
-  const handleGenerateBotSuccess = (bot: ChatbotGenerationResult) => {
-    addMessageToChatbotHistory('generation', bot.message);
+  const handleGenerateAppSuccess = (app: AppGenerationResult) => {
+    addMessageToAppHistory('generation', app.message);
     safeNavigate({
-      path: '/chatbot/create',
+      path: '/app/create',
       searchParams: {
-        step: steps.generateChatbot.nextStep,
-        chatbotId: bot.chatbotId,
+        step: steps.generateApp.nextStep,
+        appId: app.appId,
       },
     });
   };
@@ -70,15 +70,15 @@ function StepContent() {
   switch (step) {
     case 'environment':
       return <EnvironmentStep onSubmit={handleEnvironmentSubmit} />;
-    case 'generateChatbotSpecs':
-      return <GenerateSpecsStep onSuccess={handleGenerateBotSpecsSuccess} />;
-    case 'generateChatbot':
-      return <GenerateStep onSuccess={handleGenerateBotSuccess} />;
+    case 'generateAppSpecs':
+      return <GenerateSpecsStep onSuccess={handleGenerateAppSpecsSuccess} />;
+    case 'generateApp':
+      return <GenerateStep onSuccess={handleGenerateAppSuccess} />;
     case 'successGeneration':
-      if (!chatbotId) {
-        return <Text>No chatbot ID found</Text>;
+      if (!appId) {
+        return <Text>No app ID found</Text>;
       }
-      return <SuccessStep chatbotId={chatbotId} />;
+      return <SuccessStep appId={appId} />;
     default:
       return null;
   }

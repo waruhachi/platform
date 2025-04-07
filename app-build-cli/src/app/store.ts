@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatBotConfig } from './steps/steps.js';
+import type { AppConfig } from './steps/steps.js';
 import type { StateCreator } from 'zustand';
 
 type HistoryEntry = {
@@ -10,37 +10,37 @@ type HistoryEntry = {
 type GenerationStage = 'specs' | 'generation' | 'iteration';
 
 interface WizardState {
-  config: ChatBotConfig;
+  config: AppConfig;
   history: HistoryEntry[];
-  chatbotMessageHistory: Record<GenerationStage, string[]>;
+  appMessageHistory: Record<GenerationStage, string[]>;
 
   // Actions
-  setConfig: (config: Partial<ChatBotConfig>) => void;
+  setConfig: (config: Partial<AppConfig>) => void;
   addToHistory: (question: string, answer: string) => void;
-  addMessageToChatbotHistory: (stage: GenerationStage, message: string) => void;
+  addMessageToAppHistory: (stage: GenerationStage, message: string) => void;
 }
 
-export const useCreateChatbotWizardStore = create<WizardState>(((set) => ({
+export const useCreateAppWizardStore = create<WizardState>(((set) => ({
   config: {
     useStaging: false,
     prompt: '',
   },
   history: [],
-  chatbotMessageHistory: {
+  appMessageHistory: {
     specs: [],
     generation: [],
     iteration: [],
   },
 
-  addMessageToChatbotHistory: (stage: GenerationStage, message: string) =>
+  addMessageToAppHistory: (stage: GenerationStage, message: string) =>
     set((state) => ({
-      chatbotMessageHistory: {
-        ...state.chatbotMessageHistory,
-        [stage]: [...state.chatbotMessageHistory[stage], message],
+      appMessageHistory: {
+        ...state.appMessageHistory,
+        [stage]: [...state.appMessageHistory[stage], message],
       },
     })),
 
-  setConfig: (configUpdate: Partial<ChatBotConfig>) =>
+  setConfig: (configUpdate: Partial<AppConfig>) =>
     set((state) => ({
       config: { ...state.config, ...configUpdate },
     })),

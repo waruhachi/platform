@@ -1,31 +1,31 @@
 import { Box } from 'ink';
 import { Text } from 'ink';
-import { useChatbot } from '../use-chatbot.js';
+import { useApplication } from '../use-application.js';
 import React from 'react';
 import { useSafeNavigate } from '../../routes.js';
 
 type SuccessStepProps = {
-  chatbotId: string;
+  appId: string;
 };
 
-export const SuccessStep = ({ chatbotId }: SuccessStepProps) => {
-  const { data: chatbot } = useChatbot(chatbotId);
+export const SuccessStep = ({ appId }: SuccessStepProps) => {
+  const { data: app } = useApplication(appId);
   const { safeNavigate } = useSafeNavigate();
 
   React.useEffect(() => {
     const timeout = setTimeout(() => {
       safeNavigate({
-        path: '/chatbots/:chatbotId',
+        path: '/apps/:appId',
         params: {
-          chatbotId,
+          appId,
         },
       });
     }, 1_000);
 
     return () => clearTimeout(timeout);
-  }, [chatbotId, safeNavigate]);
+  }, [appId, safeNavigate]);
 
-  if (!chatbot) {
+  if (!app) {
     return null;
   }
 
@@ -39,14 +39,14 @@ export const SuccessStep = ({ chatbotId }: SuccessStepProps) => {
         marginBottom={1}
       >
         <Box>
-          <Text color="green">✓ Your chatbot is ready at: </Text>
+          <Text color="green">✓ Your app is ready at: </Text>
           <Text color="blue" bold underline>
-            {chatbot.readUrl}
+            {app.readUrl}
           </Text>
         </Box>
         <Box marginTop={1}>
-          <Text dimColor>Bot ID: </Text>
-          <Text bold>{chatbotId}</Text>
+          <Text dimColor>Application ID: </Text>
+          <Text bold>{appId}</Text>
         </Box>
       </Box>
     </Box>

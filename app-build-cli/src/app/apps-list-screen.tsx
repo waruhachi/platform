@@ -1,5 +1,5 @@
 import { Box, Text } from 'ink';
-import { useListChatBots } from './use-chatbot.js';
+import { useListApps } from './use-application.js';
 import { Select } from '../components/shared/select.js';
 import { useSafeNavigate } from '../routes.js';
 
@@ -34,27 +34,26 @@ export const getStatusColor = (status: string): string => {
   }
 };
 
-const formatBotLabel = (bot: {
+const formatAppLabel = (app: {
   name: string;
   id: string;
   deployStatus: string;
   recompileInProgress: boolean;
 }) => {
-  const status = bot.recompileInProgress ? 'recompiling' : bot.deployStatus;
+  const status = app.recompileInProgress ? 'recompiling' : app.deployStatus;
   const statusEmoji = getStatusEmoji(status);
-  const emoji = '🌐';
 
-  return `${statusEmoji}  ${bot.name}  ${emoji}`;
+  return `${statusEmoji} ${app.name}`;
 };
 
-export const ChatbotsListScreen = () => {
+export const AppsListScreen = () => {
   const { safeNavigate } = useSafeNavigate();
-  const { data: chatbots, isLoading, error } = useListChatBots();
+  const { data: apps, isLoading, error } = useListApps();
 
   if (isLoading) {
     return (
       <Box justifyContent="center" paddingY={1}>
-        <Text>⏳ Loading chatbots...</Text>
+        <Text>⏳ Loading applications...</Text>
       </Box>
     );
   }
@@ -62,38 +61,38 @@ export const ChatbotsListScreen = () => {
   if (error) {
     return (
       <Box flexDirection="column" alignItems="center" paddingY={1}>
-        <Text color="red">❌ Error loading chatbots</Text>
+        <Text color="red">❌ Error loading applications</Text>
         <Text dimColor>{error.message}</Text>
       </Box>
     );
   }
 
-  if (!chatbots?.data.length) {
+  if (!apps?.data.length) {
     return (
       <Box justifyContent="center" paddingY={1}>
-        <Text>📭 No chatbots found</Text>
+        <Text>📭 No apps found</Text>
       </Box>
     );
   }
 
-  const items: SelectItem[] = chatbots.data.map((bot) => ({
-    label: formatBotLabel(bot),
-    value: bot.id,
+  const items: SelectItem[] = apps.data.map((app) => ({
+    label: formatAppLabel(app),
+    value: app.id,
   }));
 
   return (
     <Box flexDirection="column" padding={1}>
       <Box marginBottom={1}>
-        <Text bold>🤖 Your Chatbots</Text>
+        <Text bold>🤖 Your Applications</Text>
       </Box>
 
       <Select
-        question="Select a chatbot to iterate on:"
+        question="Select an application to iterate on:"
         options={items}
         onSubmit={(item) => {
           safeNavigate({
-            path: '/chatbots/:chatbotId',
-            params: { chatbotId: item },
+            path: '/apps/:appId',
+            params: { appId: item },
           });
         }}
       />

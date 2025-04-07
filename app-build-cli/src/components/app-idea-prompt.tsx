@@ -78,7 +78,7 @@ export const AppIdeaPrompt = () => {
     >
       <Box flexDirection="column">
         <Box>
-          <Text>App Description: </Text>
+          <Text>Application Description: </Text>
           <Text color="green">{appIdea.description}</Text>
         </Box>
         <Box flexDirection="column" marginTop={1}>

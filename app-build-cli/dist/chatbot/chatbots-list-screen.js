@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { Box, Text } from 'ink';
-import { useListChatBots } from './use-chatbot.js';
+import { useListApps } from './use-app.js';
 import { Select } from '../components/shared/select.js';
 import { useSafeNavigate } from '../routes.js';
 export const getStatusEmoji = (status) => {
@@ -27,32 +27,32 @@ export const getStatusColor = (status) => {
             return 'gray';
     }
 };
-const formatBotLabel = (bot) => {
-    const status = bot.recompileInProgress ? 'recompiling' : bot.deployStatus;
+const formatAppLabel = (app) => {
+    const status = app.recompileInProgress ? 'recompiling' : app.deployStatus;
     const statusEmoji = getStatusEmoji(status);
     const emoji = '🌐';
-    return `${statusEmoji}  ${bot.name}  ${emoji}`;
+    return `${statusEmoji}  ${app.name}  ${emoji}`;
 };
-export const ChatbotsListScreen = () => {
+export const ApplicationsListScreen = () => {
     const { safeNavigate } = useSafeNavigate();
-    const { data: chatbots, isLoading, error } = useListChatBots();
+    const { data: apps, isLoading, error } = useListApps();
     if (isLoading) {
-        return (_jsx(Box, { justifyContent: "center", paddingY: 1, children: _jsx(Text, { children: "\u23F3 Loading chatbots..." }) }));
+        return (_jsx(Box, { justifyContent: "center", paddingY: 1, children: _jsx(Text, { children: "\u23F3 Loading apps..." }) }));
     }
     if (error) {
-        return (_jsxs(Box, { flexDirection: "column", alignItems: "center", paddingY: 1, children: [_jsx(Text, { color: "red", children: "\u274C Error loading chatbots" }), _jsx(Text, { dimColor: true, children: error.message })] }));
+        return (_jsxs(Box, { flexDirection: "column", alignItems: "center", paddingY: 1, children: [_jsx(Text, { color: "red", children: "\u274C Error loading apps" }), _jsx(Text, { dimColor: true, children: error.message })] }));
     }
-    if (!chatbots?.data.length) {
-        return (_jsx(Box, { justifyContent: "center", paddingY: 1, children: _jsx(Text, { children: "\uD83D\uDCED No chatbots found" }) }));
+    if (!apps?.data.length) {
+        return (_jsx(Box, { justifyContent: "center", paddingY: 1, children: _jsx(Text, { children: "\uD83D\uDCED No apps found" }) }));
     }
-    const items = chatbots.data.map((bot) => ({
-        label: formatBotLabel(bot),
-        value: bot.id,
+    const items = apps.data.map((app) => ({
+        label: formatAppLabel(app),
+        value: app.id,
     }));
-    return (_jsxs(Box, { flexDirection: "column", padding: 1, children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { bold: true, children: "\uD83E\uDD16 Your Chatbots" }) }), _jsx(Select, { question: "Select a chatbot to iterate on:", options: items, onSubmit: (item) => {
+    return (_jsxs(Box, { flexDirection: "column", padding: 1, children: [_jsx(Box, { marginBottom: 1, children: _jsx(Text, { bold: true, children: "\uD83E\uDD16 Your Apps" }) }), _jsx(Select, { question: "Select an application to iterate on:", options: items, onSubmit: (item) => {
                     safeNavigate({
-                        path: '/chatbots/:chatbotId',
-                        params: { chatbotId: item },
+                        path: '/apps/:appId',
+                        params: { appId: item },
                     });
                 } })] }));
 };

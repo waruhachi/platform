@@ -1,37 +1,37 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { createSearchParams, MemoryRouter, Route, Routes, useNavigate, useParams, useSearchParams, } from 'react-router';
 import queryString from 'query-string';
-import { ChatbotsListScreen } from './chatbot/chatbots-list-screen.js';
-import { CreateChatbotScreen } from './chatbot/create-chatbot-screen.js';
-import { ChatbotHomeScreen } from './chatbot/chatbot-home-screen.js';
+import { AppHomeScreen } from './app/app-home-screen.js';
+import { CreateAppScreen } from './app/create-app-screen.js';
+import { AppsListScreen } from './app/apps-list-screen.js';
+import { AppDetails } from './app/app-details.js';
 import { z, ZodObject, ZodType } from 'zod';
-import { steps } from './chatbot/steps/steps.js';
+import { steps as appSteps, } from './app/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
-import { ChatbotDetails } from './chatbot/chatbot-details.js';
 import { Banner } from './components/ui/banner.js';
 const ROUTES_DEFINITIONS = [
     {
         path: '/',
-        element: _jsx(ChatbotHomeScreen, {}),
+        element: _jsx(AppHomeScreen, {}),
     },
     {
-        path: '/chatbot/create',
-        element: _jsx(CreateChatbotScreen, {}),
+        path: '/app/create',
+        element: _jsx(CreateAppScreen, {}),
         searchParams: {
             step: z
-                .enum(Object.keys(steps))
+                .enum(Object.keys(appSteps))
                 .default('environment'),
-            chatbotId: z.string().optional(),
+            appId: z.string().optional(),
         },
     },
     {
-        path: '/chatbots',
-        element: _jsx(ChatbotsListScreen, {}),
+        path: '/apps',
+        element: _jsx(AppsListScreen, {}),
     },
     {
-        path: '/chatbots/:chatbotId',
-        element: _jsx(ChatbotDetails, {}),
+        path: '/apps/:appId',
+        element: _jsx(AppDetails, {}),
     },
 ];
 export function useSafeNavigate() {
