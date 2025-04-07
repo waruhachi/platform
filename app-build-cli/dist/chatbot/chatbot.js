@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'production') {
     BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 }
 else if (process.env.USE_MOCKED_AGENT === 'true') {
-    BACKEND_API_HOST = 'http://localhost:4444';
+    BACKEND_API_HOST = 'http://127.0.0.1:4444';
 }
 else {
     BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
@@ -24,10 +24,8 @@ export const generateChatbot = async (params) => {
     try {
         const requestBody = {
             prompt: params.prompt,
-            telegramBotToken: params.runMode === 'telegram' ? params.telegramBotToken : undefined,
             userId: generateMachineId(),
             useStaging: params.useStaging,
-            runMode: params.runMode,
             botId: params.botId,
             clientSource: 'cli',
             useMockedAgent: process.env.USE_MOCKED_AGENT === 'true',

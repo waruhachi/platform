@@ -16,7 +16,7 @@ export const useChatbot = (chatbotId, options) => {
 export const useListChatBots = () => {
     return useQuery({
         queryKey: queryKeys.chatbots,
-        queryFn: () => listChatBots(),
+        queryFn: listChatBots,
     });
 };
 export const useGenerateChatbotSpecs = (options = {}) => {

@@ -30,8 +30,8 @@ export const getStatusColor = (status) => {
 const formatBotLabel = (bot) => {
     const status = bot.recompileInProgress ? 'recompiling' : bot.deployStatus;
     const statusEmoji = getStatusEmoji(status);
-    const runModeEmoji = bot.runMode === 'telegram' ? '📱' : '🌐';
-    return `${statusEmoji}  ${bot.name}  ${runModeEmoji}`;
+    const emoji = '🌐';
+    return `${statusEmoji}  ${bot.name}  ${emoji}`;
 };
 export const ChatbotsListScreen = () => {
     const { safeNavigate } = useSafeNavigate();

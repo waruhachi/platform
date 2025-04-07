@@ -1,22 +1,4 @@
 export const steps = {
-  runMode: {
-    label: 'Application Type',
-    question: 'Select the application type:',
-    options: [
-      { label: 'Telegram Bot', value: 'telegram' as const },
-      { label: 'HTTP Server', value: 'http-server' as const },
-    ],
-    nextStep: (config: ChatBotConfig) =>
-      config.runMode === 'telegram'
-        ? ('token' as const)
-        : ('environment' as const),
-  },
-  token: {
-    label: 'Bot Configuration',
-    question: 'Enter your Telegram Bot Token:',
-    placeholder: 'e.g., 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz',
-    nextStep: 'environment' as const,
-  },
   environment: {
     label: 'Environment Selection',
     question: 'Choose where your chatbot will run:',
@@ -47,9 +29,7 @@ export const steps = {
 };
 
 export type ChatBotConfig = {
-  telegramBotToken: string;
   useStaging: boolean;
-  runMode: 'telegram' | 'http-server';
   prompt: string;
 };
 

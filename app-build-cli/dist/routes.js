@@ -21,7 +21,7 @@ const ROUTES_DEFINITIONS = [
         searchParams: {
             step: z
                 .enum(Object.keys(steps))
-                .default('runMode'),
+                .default('environment'),
             chatbotId: z.string().optional(),
         },
     },

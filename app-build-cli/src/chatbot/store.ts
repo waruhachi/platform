@@ -22,9 +22,7 @@ interface WizardState {
 
 export const useCreateChatbotWizardStore = create<WizardState>(((set) => ({
   config: {
-    telegramBotToken: '',
     useStaging: false,
-    runMode: 'telegram',
     prompt: '',
   },
   history: [],

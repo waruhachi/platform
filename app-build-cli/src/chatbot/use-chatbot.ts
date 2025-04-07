@@ -37,7 +37,7 @@ export const useChatbot = (
 export const useListChatBots = () => {
   return useQuery({
     queryKey: queryKeys.chatbots,
-    queryFn: () => listChatBots(),
+    queryFn: listChatBots,
   });
 };
 

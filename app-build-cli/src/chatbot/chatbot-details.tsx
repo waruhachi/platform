@@ -45,11 +45,7 @@ export function ChatbotDetails() {
 
           <Text>
             <Text color="gray">Mode: </Text>
-            <Text bold>
-              {chatbot.runMode === 'telegram'
-                ? '📱 Telegram'
-                : '🌐 HTTP Server'}
-            </Text>
+            <Text bold>🌐 HTTP Server</Text>
           </Text>
 
           {chatbot.recompileInProgress && (
@@ -70,8 +66,6 @@ export function ChatbotDetails() {
               prompt: text,
               ...chatbot,
               useStaging: false,
-              telegramBotToken: '',
-              runMode: 'http-server',
             })
           }
           status={generateChatbotIterationStatus}

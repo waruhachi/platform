@@ -38,14 +38,13 @@ const formatBotLabel = (bot: {
   name: string;
   id: string;
   deployStatus: string;
-  runMode: string;
   recompileInProgress: boolean;
 }) => {
   const status = bot.recompileInProgress ? 'recompiling' : bot.deployStatus;
   const statusEmoji = getStatusEmoji(status);
-  const runModeEmoji = bot.runMode === 'telegram' ? '📱' : '🌐';
+  const emoji = '🌐';
 
-  return `${statusEmoji}  ${bot.name}  ${runModeEmoji}`;
+  return `${statusEmoji}  ${bot.name}  ${emoji}`;
 };
 
 export const ChatbotsListScreen = () => {

@@ -9,7 +9,7 @@ let BACKEND_API_HOST: string;
 if (process.env.NODE_ENV === 'production') {
   BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 } else if (process.env.USE_MOCKED_AGENT === 'true') {
-  BACKEND_API_HOST = 'http://localhost:4444';
+  BACKEND_API_HOST = 'http://127.0.0.1:4444';
 } else {
   BACKEND_API_HOST = 'https://platform-muddy-meadow-938.fly.dev';
 }
@@ -30,12 +30,10 @@ export type Chatbot = {
   createdAt: Date;
   updatedAt: Date;
   ownerId: string;
-  telegramBotToken?: string | null;
   flyAppId?: string | null;
   s3Checksum?: string | null;
   deployStatus: 'pending' | 'deploying' | 'deployed' | 'failed';
   traceId?: string | null;
-  runMode: string; // "telegram" by default
   typespecSchema?: string | null;
   receivedSuccess: boolean;
   recompileInProgress: boolean;
@@ -43,9 +41,7 @@ export type Chatbot = {
 };
 
 export type ChatbotGenerationParams = {
-  telegramBotToken?: string;
   useStaging: boolean;
-  runMode: 'telegram' | 'http-server';
   prompt: string;
   botId?: string;
 };
@@ -64,11 +60,8 @@ export const generateChatbot = async (params: ChatbotGenerationParams) => {
   try {
     const requestBody = {
       prompt: params.prompt,
-      telegramBotToken:
-        params.runMode === 'telegram' ? params.telegramBotToken : undefined,
       userId: generateMachineId(),
       useStaging: params.useStaging,
-      runMode: params.runMode,
       botId: params.botId,
       clientSource: 'cli',
       useMockedAgent: process.env.USE_MOCKED_AGENT === 'true',

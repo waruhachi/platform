@@ -1,9 +1,7 @@
 import { create } from 'zustand';
 export const useCreateChatbotWizardStore = create(((set) => ({
     config: {
-        telegramBotToken: '',
         useStaging: false,
-        runMode: 'telegram',
         prompt: '',
     },
     history: [],
