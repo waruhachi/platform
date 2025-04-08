@@ -9,7 +9,7 @@ import { z, ZodObject, ZodType } from 'zod';
 import { steps as appSteps, } from './app/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
-import { Banner } from './components/ui/banner.js';
+import { Banner } from './components/ui/Banner.js';
 const ROUTES_DEFINITIONS = [
     {
         path: '/',

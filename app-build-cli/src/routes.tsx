@@ -22,7 +22,7 @@ import {
 } from './app/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
-import { Banner } from './components/ui/banner.js';
+import { Banner } from './components/ui/Banner.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
