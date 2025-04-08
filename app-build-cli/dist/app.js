@@ -1,7 +1,7 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { useEffect } from 'react';
-import { ChatBotFlow } from './chatbot/create-chatbot.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppRouter } from './routes.js';
 const queryClient = new QueryClient();
 // refresh the app every 100ms
 const useKeepAlive = () => useEffect(() => {
@@ -9,6 +9,6 @@ const useKeepAlive = () => useEffect(() => {
 }, []);
 export const App = () => {
     useKeepAlive();
-    return (_jsx(QueryClientProvider, { client: queryClient, children: _jsx(ChatBotFlow, {}) }));
+    return (_jsx(QueryClientProvider, { client: queryClient, children: _jsx(AppRouter, {}) }));
 };
 //# sourceMappingURL=app.js.map

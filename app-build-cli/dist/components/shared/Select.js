@@ -7,4 +7,4 @@ export const Select = ({ question, onSubmit, options, }) => {
                         onSubmit(value);
                     } }) })] }));
 };
-//# sourceMappingURL=Select.js.map
+//# sourceMappingURL=select.js.map

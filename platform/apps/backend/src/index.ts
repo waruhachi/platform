@@ -674,8 +674,11 @@ app.post(
           ownerId: userId,
           clientSource,
         })
-        .onConflictDoNothing({
+        .onConflictDoUpdate({
           target: [apps.id],
+          set: {
+            updatedAt: new Date(),
+          },
         })
         .returning();
 

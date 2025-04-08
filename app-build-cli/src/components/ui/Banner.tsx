@@ -11,7 +11,7 @@ export const Banner = () => {
           </Box>
           <Box marginTop={1}>
             <Text dimColor>
-              Create, deploy, and manage your chatbots with ease
+              Create, deploy, and manage your applications with ease
             </Text>
           </Box>
         </Box>

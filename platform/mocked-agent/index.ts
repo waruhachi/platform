@@ -9,7 +9,7 @@ export const fastify = Fastify({
 const mockPrepareResponse = {
   status: "success",
   message:
-    "Your bot's type specification has been prepared. Use cases implemented: sendMessage, registerCommand, processUpdate, configureBotSettings",
+    "Your application's type specification has been prepared. Use cases implemented: sendMessage, registerCommand, processUpdate, configureBotSettings",
   trace_id: "36c9e4bc5ed045a99bde1fd6c8a7f6d4",
   metadata: {
     reasoning: `Based on the user's request, they want to create a "Hello World" Telegram bot. This is a simple bot that would likely support basic functionalities like:

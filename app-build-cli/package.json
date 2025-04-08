@@ -5,10 +5,10 @@
   "bin": "dist/cli.js",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "react-router typegen && tsc",
     "dev": "tsc --watch",
     "test": "prettier --check . && xo && ava",
     "format": "prettier --write .",
@@ -22,12 +22,16 @@
     "@tanstack/react-query": "5.69.0",
     "dotenv": "^16.4.7",
     "ink": "5.2.0",
+    "ink-divider": "^4.1.1",
     "ink-spinner": "^5.0.0",
     "ink-syntax-highlight": "2.0.2",
-    "ink-text-input": "6.0.0",
+    "ink-text-input": "^6.0.0",
     "meow": "13.2.0",
     "node-fetch": "3.3.2",
+    "query-string": "^9.1.1",
     "react": "^18.2.0",
+    "react-router": "^7.4.1",
+    "zod": "^3.24.2",
     "zustand": "5.0.3"
   },
   "devDependencies": {
@@ -36,7 +40,7 @@
     "@tanstack/eslint-plugin-query": "^5.68.0",
     "@types/react": "^18.0.32",
     "bun": "1.2.5",
-    "chalk": "^5.2.0",
+    "chalk": "4.1.2",
     "eslint": "9.23.0",
     "eslint-plugin-react": "7.37.4",
     "eslint-plugin-react-hooks": "5.2.0",

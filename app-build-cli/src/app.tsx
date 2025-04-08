@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { ChatBotFlow } from './chatbot/create-chatbot.js';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppRouter } from './routes.js';
 
 const queryClient = new QueryClient();
 
@@ -15,7 +15,7 @@ export const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ChatBotFlow />
+      <AppRouter />
     </QueryClientProvider>
   );
 };
