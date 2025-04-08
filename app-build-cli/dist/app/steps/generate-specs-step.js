@@ -11,7 +11,7 @@ export const GenerateSpecsStep = ({ onSuccess }) => {
             onSuccess(result, params.prompt);
         },
     });
-    return (_jsx(Box, { marginY: 1, children: _jsx(InfiniteFreeText, { successMessage: "Application specifications generated successfully", status: generateAppStatus, errorMessage: generateAppError?.message, retryMessage: "Please retry with a different prompt.", loadingText: "Generating your application specifications...", question: "What kind of app would you like to create?", placeholder: "e.g., I want a note taking app...", onSubmit: (value) => {
+    return (_jsx(Box, { marginY: 1, children: _jsx(InfiniteFreeText, { successMessage: "App specifications generated successfully", status: generateAppStatus, errorMessage: generateAppError?.message, retryMessage: "Please retry with a different prompt.", loadingText: "Generating your application specifications...", question: "What kind of app would you like to create?", placeholder: "e.g., I want a note taking app...", onSubmit: (value) => {
                 generateApp({ ...config, prompt: value });
             } }) }));
 };

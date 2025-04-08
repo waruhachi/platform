@@ -7,19 +7,23 @@ import { Panel } from '../components/shared/panel.js';
 
 export function AppDetails() {
   const { appId } = useRouteParams('/apps/:appId');
-  const { data: app, isLoading, error } = useApplication(appId);
+  const {
+    data: app,
+    isLoading: isLoadingApp,
+    error: errorApp,
+  } = useApplication(appId);
   const {
     mutate: generateAppIteration,
     status: generateAppIterationStatus,
     error: generateAppIterationError,
   } = useGenerateApp();
 
-  if (isLoading) {
+  if (isLoadingApp) {
     return <Text>Loading...</Text>;
   }
 
-  if (error) {
-    return <Text color="red">Error: {error.message}</Text>;
+  if (errorApp) {
+    return <Text color="red">Error: {errorApp.message}</Text>;
   }
 
   if (!app) {
@@ -30,6 +34,11 @@ export function AppDetails() {
     <Box flexDirection="column" padding={1}>
       <Panel title="📋 Application Details" variant="info">
         <Box flexDirection="column" gap={1}>
+          <Text>
+            <Text color="gray">ID: </Text>
+            <Text bold>{app.id}</Text>
+          </Text>
+
           <Text>
             <Text color="gray">Name: </Text>
             <Text bold>{app.name}</Text>
@@ -59,12 +68,12 @@ export function AppDetails() {
       <Box marginTop={2}>
         <InfiniteFreeText
           successMessage="Changes applied successfully"
-          question="How would you like to modify your app?"
+          question="How would you like to modify your application?"
           placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
           onSubmit={(text: string) =>
             generateAppIteration({
               prompt: text,
-              ...app,
+              appId: app.id,
               useStaging: false,
             })
           }

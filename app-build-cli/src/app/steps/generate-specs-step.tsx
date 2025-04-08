@@ -24,7 +24,7 @@ export const GenerateSpecsStep = ({ onSuccess }: GenerateSpecsStepProps) => {
   return (
     <Box marginY={1}>
       <InfiniteFreeText
-        successMessage="Application specifications generated successfully"
+        successMessage="App specifications generated successfully"
         status={generateAppStatus}
         errorMessage={generateAppError?.message}
         retryMessage="Please retry with a different prompt."
