@@ -28,12 +28,11 @@ function MockedAgentAppScreen() {
 
   return (
     <Box>
-      <Text>Mocked Agent App</Text>
       <InfiniteFreeText
         successMessage="Changes applied successfully"
         question="How would you like to modify your application?"
         placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
-        onSubmit={(text: string) => startBuilding('hey')}
+        onSubmit={(text: string) => startBuilding(text)}
         status={status}
         errorMessage={error?.message}
         loadingText="Applying changes..."

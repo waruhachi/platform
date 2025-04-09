@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { FastifySSEPlugin } from "fastify-sse-v2";
-
+import { v4 as uuidv4 } from "uuid";
 export const fastify = Fastify({
   logger: true,
 });
@@ -197,69 +197,170 @@ fastify.post(
   },
 );
 
-// Define routes
 // Main /message endpoint
 fastify.post("/message", async (request, reply) => {
-  const { message, sessionId } = request.body;
+  const { allMessages, applicationId, traceId } = request.body as {
+    allMessages: string[];
+    applicationId?: string;
+    traceId: string;
+  };
 
-  // Generate a unique traceId for this request
-  const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-  // Validate sessionId
-  if (!sessionId) {
+  if (!allMessages || !traceId) {
     return reply.status(400).send({
-      error: "Missing required field: sessionId",
+      error: "Missing required fields: allMessages, traceId",
     });
   }
 
-  // Process the response as an SSE stream
+  return {
+    status: "accepted",
+    applicationId: uuidv4(),
+    message: "Message received and processing started",
+  };
+});
+
+fastify.get("/message", async (request, reply) => {
+  const { applicationId } = request.query as any;
+
+  if (!applicationId) {
+    return reply.status(400).send({
+      error: "Missing required query parameter: applicationId",
+    });
+  }
+
   reply.sse(
     (async function* () {
-      // Wait a bit to simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-      // Yield a simple response
+      // Introduction message
       yield {
-        type: "message",
-        parts: [
-          {
-            type: "text",
-            content: "I received your message and am processing it...",
-          },
-        ],
-        sessionId,
-        status: "running",
-        id: traceId,
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [
+            {
+              type: "text",
+              content:
+                "I'll help you create a React component with a form. Let's start with a basic contact form.\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
       };
 
-      // Wait again to simulate more processing
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((res) => setTimeout(res, 1000));
 
-      // Send final response with interactive elements
+      // Steps message
       yield {
-        type: "message",
-        parts: [
-          {
-            type: "text",
-            content: `I've processed your message: "${message}"`,
-          },
-          {
-            type: "interactive",
-            elements: [
-              {
-                type: "choice",
-                questionId: "next_action",
-                options: [
-                  { value: "more_info", label: "Get More Information" },
-                  { value: "continue", label: "Continue" },
-                ],
-              },
-            ],
-          },
-        ],
-        sessionId,
-        status: "idle",
-        id: traceId,
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [
+            {
+              type: "text",
+              content:
+                "We'll need to:\n1. Create a form with input fields\n2. Manage form state with React hooks\n3. Handle form submission\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Code introduction
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [
+            {
+              type: "text",
+              content:
+                "Here's a basic structure for a contact form component:\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Code block
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [
+            {
+              type: "text",
+              content:
+                '```jsx\nimport React, { useState } from \'react\';\n\nfunction ContactForm() {\n  const [formData, setFormData] = useState({\n    name: \'\',\n    email: \'\',\n    message: \'\'\n  });\n\n  const handleChange = (e) => {\n    const { name, value } = e.target;\n    setFormData({\n      ...formData,\n      [name]: value\n    });\n  };\n\n  const handleSubmit = (e) => {\n    e.preventDefault();\n    console.log(\'Form submitted:\', formData);\n    // Add API call to send data\n  };\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <div>\n        <label htmlFor="name">Name:</label>\n        <input\n          type="text"\n          id="name"\n          name="name"\n          value={formData.name}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <div>\n        <label htmlFor="email">Email:</label>\n        <input\n          type="email"\n          id="email"\n          name="email"\n          value={formData.email}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <div>\n        <label htmlFor="message">Message:</label>\n        <textarea\n          id="message"\n          name="message"\n          value={formData.message}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <button type="submit">Submit</button>\n    </form>\n  );\n}\n\nexport default ContactForm;\n```\n',
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Question and interactive options
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [
+            {
+              type: "text",
+              content:
+                "What kind of form would you like to create? I can customize this example based on your specific needs.",
+            },
+            {
+              type: "interactive",
+              elements: [
+                {
+                  type: "choice",
+                  questionId: "form_type",
+                  options: [
+                    { value: "login", label: "Login Form" },
+                    { value: "signup", label: "Signup Form" },
+                    { value: "payment", label: "Payment Form" },
+                    { value: "survey", label: "Survey Form" },
+                  ],
+                },
+                {
+                  type: "action",
+                  id: "add_validation",
+                  label: "Add Form Validation",
+                },
+              ],
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Final completion message
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          parts: [{ type: "text", content: "All done!" }],
+          applicationId,
+          status: "idle",
+          traceId,
+        }),
       };
     })(),
   );
