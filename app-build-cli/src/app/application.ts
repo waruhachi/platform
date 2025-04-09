@@ -1,6 +1,9 @@
 import { config } from 'dotenv';
 import fetch from 'node-fetch';
 import os from 'os';
+import chalk from 'chalk';
+import { EventSource } from 'eventsource';
+import { error } from 'console';
 
 // Load environment variables from .env file
 config();
@@ -168,3 +171,119 @@ export const listApps = async () => {
     throw error;
   }
 };
+
+export async function sendMessage(message: string) {
+  const response = await fetch(`${BACKEND_API_HOST}/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json()) as {
+      error: string;
+    };
+    throw new Error(errorData.error || 'Unknown error');
+  }
+
+  const result = (await response.json()) as {
+    applicationId: string;
+  };
+
+  console.log('sendMessage result', result);
+
+  return result.applicationId;
+}
+
+export function subscribeToMessages(
+  applicationId: string,
+  {
+    onNewMessage,
+  }: {
+    onNewMessage: (data: any) => void;
+  }
+) {
+  const es = new EventSource(
+    `${BACKEND_API_HOST}/message?applicationId=${applicationId}`
+  );
+
+  let assistantResponse = '';
+
+  es.addEventListener('open', () => {
+    console.log(chalk.green('🔗 Connected to SSE stream.\n'));
+  });
+
+  es.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      onNewMessage(data);
+
+      if (data.status === 'running') {
+        console.log(chalk.yellow('⚙️ Processing...\n'));
+        renderParts(data.parts);
+        assistantResponse += extractText(data.parts);
+
+        // ✅ Handle stream completion flag
+        if (data.done) {
+          console.log(chalk.green('\n✅ Done signal received.\n'));
+          es.close();
+        }
+      }
+
+      if (data.status === 'idle') {
+        console.log(chalk.green('\n✅ Response complete:\n'));
+        renderParts(data.parts);
+        assistantResponse += extractText(data.parts);
+        es.close();
+      }
+    } catch (error) {
+      console.error(chalk.red(`❌ Failed to process SSE message: ${error}`));
+    }
+  });
+
+  es.addEventListener('error', (event) => {
+    console.log({ readyState: es.readyState });
+
+    // Ignore harmless disconnects
+    if (es.readyState === 2 /* CLOSED */) {
+      console.log(chalk.gray('ℹ️ SSE connection closed cleanly.'));
+      return;
+    }
+
+    console.error(chalk.red(`🔥 SSE Error occurred: ${JSON.stringify(error)}`));
+    es.close();
+  });
+
+  return es;
+}
+
+// Helper to render message parts
+function renderParts(parts: any[]) {
+  parts.forEach((part) => {
+    if (part.type === 'text') {
+      console.log(part.content);
+    } else if (part.type === 'interactive') {
+      console.log(chalk.cyan('\n💡 Interactive Options:'));
+      part.elements?.forEach((element: any) => {
+        if (element.type === 'choice') {
+          console.log(chalk.cyan(`\n❓ ${element.questionId}`));
+          element.options?.forEach((opt: any, i: number) =>
+            console.log(`  ${i + 1}. ${opt.label} (${opt.value})`)
+          );
+        } else if (element.type === 'action') {
+          console.log(`⚙️  Action: ${element.label} (${element.id})`);
+        }
+      });
+    }
+  });
+}
+
+// Helper to accumulate text for history
+function extractText(parts: any[]): string {
+  return (
+    parts
+      .filter((p) => p.type === 'text')
+      .map((p) => p.content)
+      .join('\n') + '\n'
+  );
+}

@@ -1,8 +1,13 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
+import { FastifySSEPlugin } from "fastify-sse-v2";
 
 export const fastify = Fastify({
   logger: true,
+});
+
+fastify.register(FastifySSEPlugin, {
+  retryDelay: 5_000, // 5 seconds
 });
 
 // Mock response for /prepare endpoint
@@ -191,6 +196,74 @@ fastify.post(
     return reply.status(200).send({});
   },
 );
+
+// Define routes
+// Main /message endpoint
+fastify.post("/message", async (request, reply) => {
+  const { message, sessionId } = request.body;
+
+  // Generate a unique traceId for this request
+  const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  // Validate sessionId
+  if (!sessionId) {
+    return reply.status(400).send({
+      error: "Missing required field: sessionId",
+    });
+  }
+
+  // Process the response as an SSE stream
+  reply.sse(
+    (async function* () {
+      // Wait a bit to simulate processing
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Yield a simple response
+      yield {
+        type: "message",
+        parts: [
+          {
+            type: "text",
+            content: "I received your message and am processing it...",
+          },
+        ],
+        sessionId,
+        status: "running",
+        id: traceId,
+      };
+
+      // Wait again to simulate more processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Send final response with interactive elements
+      yield {
+        type: "message",
+        parts: [
+          {
+            type: "text",
+            content: `I've processed your message: "${message}"`,
+          },
+          {
+            type: "interactive",
+            elements: [
+              {
+                type: "choice",
+                questionId: "next_action",
+                options: [
+                  { value: "more_info", label: "Get More Information" },
+                  { value: "continue", label: "Continue" },
+                ],
+              },
+            ],
+          },
+        ],
+        sessionId,
+        status: "idle",
+        id: traceId,
+      };
+    })(),
+  );
+});
 
 // Start the server
 export const start = async () => {
