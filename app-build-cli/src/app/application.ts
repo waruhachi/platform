@@ -192,15 +192,23 @@ export async function sendMessage(message: string) {
 
   const result = (await response.json()) as {
     applicationId: string;
+    traceId: string;
   };
 
-  console.log('sendMessage result', result);
-
-  return result.applicationId;
+  return {
+    applicationId: result.applicationId,
+    traceId: result.traceId,
+  };
 }
 
 export function subscribeToMessages(
-  applicationId: string,
+  {
+    applicationId,
+    traceId,
+  }: {
+    applicationId: string;
+    traceId: string;
+  },
   {
     onNewMessage,
   }: {
@@ -208,7 +216,7 @@ export function subscribeToMessages(
   }
 ) {
   const es = new EventSource(
-    `${BACKEND_API_HOST}/message?applicationId=${applicationId}`
+    `${BACKEND_API_HOST}/message?applicationId=${applicationId}&traceId=${traceId}`
   );
 
   let assistantResponse = '';

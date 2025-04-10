@@ -3,51 +3,106 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sendMessage, subscribeToMessages } from '../application.js';
 import { useEffect } from 'react';
 
-const queryKeys = {
-  fullstackAppsMessages: (id: string) => ['fullstack-apps', id],
+type ChoiceElement = {
+  type: 'choice';
+  questionId: string;
+  options: {
+    value: string;
+    label: string;
+  };
 };
 
-const useSubscribeToMessages = (applicationId: string | undefined) => {
+type ActionElement = {
+  type: 'action';
+  id: string;
+  label: string;
+};
+
+type MessagePart =
+  | {
+      type: 'text';
+      content: string;
+    }
+  | {
+      type: 'code';
+      language: string;
+      content: string;
+    }
+  | {
+      type: 'interactive';
+      elements: (ChoiceElement | ActionElement)[];
+    };
+
+type Message = {
+  type: 'message';
+  parts: MessagePart[];
+  applicationId: string;
+  status: 'streaming' | 'success' | 'error';
+  traceId: string;
+};
+
+const queryKeys = {
+  applicationMessages: (id: string) => ['apps', id],
+};
+
+const useSubscribeToMessages = (
+  params:
+    | {
+        applicationId: string;
+        traceId: string;
+      }
+    | undefined
+) => {
   const queryClient = useQueryClient();
+  const { applicationId, traceId } = params ?? {};
 
   useEffect(() => {
-    if (!applicationId) return;
+    if (!applicationId || !traceId) return;
 
-    const eventSource = subscribeToMessages(applicationId, {
-      onNewMessage: (data) => {
-        queryClient.setQueryData(
-          queryKeys.fullstackAppsMessages(applicationId),
-          (oldData: any) => {
-            if (!oldData) return { messages: [data] };
-
-            return {
-              ...oldData,
-              messages: [...oldData.messages, data],
-            };
-          }
-        );
-        console.log('New message:', data);
+    const eventSource = subscribeToMessages(
+      {
+        applicationId,
+        traceId,
       },
-    });
+      {
+        onNewMessage: (data) => {
+          queryClient.setQueryData(
+            queryKeys.applicationMessages(applicationId),
+            (oldData: any) => {
+              if (!oldData) return { messages: [data] };
+
+              return {
+                ...oldData,
+                messages: [...oldData.messages, data],
+              };
+            }
+          );
+        },
+      }
+    );
 
     return () => {
       eventSource.close();
     };
-  }, [queryClient, applicationId]);
+  }, [queryClient, applicationId, traceId]);
 };
 
 const useSendMessage = () => {
-  const [applicationId, setApplicationId] = useState<string | undefined>(
-    undefined
-  );
-  useSubscribeToMessages(applicationId);
+  const [messageResult, setMessageResult] = useState<
+    | {
+        applicationId: string;
+        traceId: string;
+      }
+    | undefined
+  >(undefined);
+  useSubscribeToMessages(messageResult);
 
   return useMutation({
     mutationFn: async (message: string) => {
       return sendMessage(message);
     },
-    onSuccess: (applicationId) => {
-      setApplicationId(applicationId);
+    onSuccess: (result) => {
+      setMessageResult(result);
     },
   });
 };
@@ -63,9 +118,9 @@ export const useBuildApp = () => {
   } = useSendMessage();
 
   const messageQuery = useQuery({
-    queryKey: queryKeys.fullstackAppsMessages('123'),
+    queryKey: queryKeys.applicationMessages('123'),
     queryFn: () =>
-      queryClient.getQueryData(queryKeys.fullstackAppsMessages('123')),
+      queryClient.getQueryData<Message[]>(queryKeys.applicationMessages('123')),
     // this only reads the cached data
     enabled: false,
   });

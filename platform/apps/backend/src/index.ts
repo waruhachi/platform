@@ -442,6 +442,7 @@ node_modules
 export const app = fastify({
   logger: true,
   disableRequestLogging: true,
+  genReqId: () => uuidv4(),
 });
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -974,6 +975,8 @@ app.post(
 // Platform endpoint that forwards to the agent and streams back responses
 app.post("/message", async (request, reply) => {
   try {
+    const applicationTraceId = (appId: string | undefined) =>
+      appId ? `app-${appId}.req-${request.id}` : `temp.req-${request.id}`;
     app.log.info("Received message request", {
       body: request.body,
     });
@@ -1007,7 +1010,7 @@ app.post("/message", async (request, reply) => {
     } = {
       applicationId: requestBody.applicationId,
       allMessages,
-      traceId: uuidv4(),
+      traceId: applicationTraceId(requestBody.applicationId),
     };
 
     // Forward the request to the agent
@@ -1027,17 +1030,15 @@ app.post("/message", async (request, reply) => {
 
     let applicationId = requestBody.applicationId;
     if (!applicationId) {
-      const app = await db
-        .insert(apps)
-        .values({
-          id: uuidv4(),
-          name: requestBody.message,
-          clientSource: requestBody.clientSource,
-          ownerId: requestBody.userId,
-          traceId: body.traceId,
-        })
-        .returning();
-      applicationId = app[0].id;
+      const newAppId = uuidv4();
+      await db.insert(apps).values({
+        id: newAppId,
+        name: requestBody.message,
+        clientSource: requestBody.clientSource,
+        ownerId: requestBody.userId,
+        traceId: applicationTraceId(newAppId),
+      });
+      applicationId = newAppId;
     }
 
     // insert the new user prompt
@@ -1048,10 +1049,16 @@ app.post("/message", async (request, reply) => {
       kind: "user",
     });
 
+    app.log.info({
+      msg: "Upgrading traceId from bootstrap to application",
+      oldTraceId: applicationTraceId(undefined),
+      newTraceId: applicationTraceId(applicationId),
+    });
+
     // return a success message with instructions to connect to the GET endpoint
     return {
       status: "success",
-      traceId: body.traceId,
+      traceId: applicationTraceId(applicationId),
       applicationId: applicationId,
       message:
         "Request accepted, connect to GET /message?applicationId=YOUR_APPLICATION_ID to subscribe to updates",
@@ -1065,9 +1072,9 @@ app.post("/message", async (request, reply) => {
 // GET endpoint for SSE streaming
 app.get("/message", async (request, reply) => {
   try {
-    const { applicationId } = request.query as any;
+    const { applicationId, traceId } = request.query as any;
 
-    // Validate sessionId
+    // Validate applicationId
     if (!applicationId) {
       app.log.error("Missing required query parameter: applicationId", {
         query: request.query,
@@ -1076,6 +1083,18 @@ app.get("/message", async (request, reply) => {
       });
       return reply.status(400).send({
         error: "Missing required query parameter: applicationId",
+      });
+    }
+
+    // Validate traceId
+    if (!traceId) {
+      app.log.error("Missing required query parameter: traceId", {
+        query: request.query,
+        endpoint: request.url,
+        method: request.method,
+      });
+      return reply.status(400).send({
+        error: "Missing required query parameter: traceId",
       });
     }
 
@@ -1094,7 +1113,7 @@ app.get("/message", async (request, reply) => {
         try {
           // Create EventSource to read from agent's GET endpoint
           const es = new EventSource(
-            `${MOCKED_AGENT_API_URL}/message?applicationId=${applicationId}`,
+            `${MOCKED_AGENT_API_URL}/message?applicationId=${applicationId}&traceId=${traceId}`,
           );
 
           // Return a promise that resolves on each message or rejects on error

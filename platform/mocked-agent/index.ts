@@ -217,7 +217,7 @@ fastify.post("/message", async (request, reply) => {
 });
 
 fastify.get("/message", async (request, reply) => {
-  const { applicationId } = request.query as any;
+  const { applicationId, traceId } = request.query as any;
 
   if (!applicationId) {
     return reply.status(400).send({
@@ -227,8 +227,6 @@ fastify.get("/message", async (request, reply) => {
 
   reply.sse(
     (async function* () {
-      const traceId = `trace-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
       // Introduction message
       yield {
         event: "message",

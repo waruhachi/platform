@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { InfiniteFreeText } from './components/shared/free-text.js';
 import { Box, Text } from 'ink';
 import { useBuildApp } from './app/message/use-message.js';
+import { BuildingBlock } from './components/shared/building-block.js';
 const queryClient = new QueryClient();
 
 // refresh the app every 100ms
@@ -24,8 +25,6 @@ export const App = () => {
 function MockedAgentAppScreen() {
   const { startBuilding, error, status, data } = useBuildApp();
 
-  console.log({ data });
-
   return (
     <Box>
       <InfiniteFreeText
@@ -38,6 +37,8 @@ function MockedAgentAppScreen() {
         loadingText="Applying changes..."
         retryMessage="Please retry."
       />
+
+      <BuildingBlock type="free-text" onSubmit={() => {}} />
     </Box>
   );
 }

@@ -120,11 +120,13 @@ export async function sendMessage(message) {
         throw new Error(errorData.error || 'Unknown error');
     }
     const result = (await response.json());
-    console.log('sendMessage result', result);
-    return result.applicationId;
+    return {
+        applicationId: result.applicationId,
+        traceId: result.traceId,
+    };
 }
-export function subscribeToMessages(applicationId, { onNewMessage, }) {
-    const es = new EventSource(`${BACKEND_API_HOST}/message?applicationId=${applicationId}`);
+export function subscribeToMessages({ applicationId, traceId, }, { onNewMessage, }) {
+    const es = new EventSource(`${BACKEND_API_HOST}/message?applicationId=${applicationId}&traceId=${traceId}`);
     let assistantResponse = '';
     es.addEventListener('open', () => {
         console.log(chalk.green('🔗 Connected to SSE stream.\n'));
