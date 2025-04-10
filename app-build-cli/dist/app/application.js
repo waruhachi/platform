@@ -109,7 +109,11 @@ export async function sendMessage(message) {
     const response = await fetch(`${BACKEND_API_HOST}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+            message,
+            clientSource: 'cli',
+            userId: generateMachineId(),
+        }),
     });
     if (!response.ok) {
         const errorData = (await response.json());

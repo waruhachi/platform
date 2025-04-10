@@ -1,7 +1,6 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { FastifySSEPlugin } from "fastify-sse-v2";
-import { v4 as uuidv4 } from "uuid";
 export const fastify = Fastify({
   logger: true,
 });
@@ -213,7 +212,6 @@ fastify.post("/message", async (request, reply) => {
 
   return {
     status: "accepted",
-    applicationId: uuidv4(),
     message: "Message received and processing started",
   };
 });

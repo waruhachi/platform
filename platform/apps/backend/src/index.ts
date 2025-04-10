@@ -981,6 +981,8 @@ app.post("/message", async (request, reply) => {
     const requestBody = request.body as {
       message: string;
       applicationId?: string;
+      clientSource: string;
+      userId: string;
     };
 
     const allMessages: string[] = [];
@@ -994,8 +996,9 @@ app.post("/message", async (request, reply) => {
         .from(appPrompts)
         .where(eq(appPrompts.appId, requestBody.applicationId));
       allMessages.push(...historyPrompts.map((p) => p.prompt));
+    } else {
+      allMessages.push(requestBody.message);
     }
-    allMessages.push(requestBody.message);
 
     const body: {
       applicationId: string | undefined;
@@ -1022,28 +1025,34 @@ app.post("/message", async (request, reply) => {
       return reply.status(agentResponse.status).send(errorData);
     }
 
-    const agentResult = (await agentResponse.json()) as {
-      applicationId: string;
-    };
-
-    console.log({ agentResult });
+    let applicationId = requestBody.applicationId;
+    if (!applicationId) {
+      const app = await db
+        .insert(apps)
+        .values({
+          id: uuidv4(),
+          name: requestBody.message,
+          clientSource: requestBody.clientSource,
+          ownerId: requestBody.userId,
+          traceId: body.traceId,
+        })
+        .returning();
+      applicationId = app[0].id;
+    }
 
     // insert the new user prompt
-    await db
-      .insert(appPrompts)
-      .values({
-        id: uuidv4(),
-        prompt: requestBody.message,
-        appId: agentResult.applicationId,
-        kind: "user",
-      })
-      .returning();
+    await db.insert(appPrompts).values({
+      id: uuidv4(),
+      prompt: requestBody.message,
+      appId: applicationId,
+      kind: "user",
+    });
 
     // return a success message with instructions to connect to the GET endpoint
     return {
       status: "success",
       traceId: body.traceId,
-      applicationId: agentResult.applicationId,
+      applicationId: applicationId,
       message:
         "Request accepted, connect to GET /message?applicationId=YOUR_APPLICATION_ID to subscribe to updates",
     };
