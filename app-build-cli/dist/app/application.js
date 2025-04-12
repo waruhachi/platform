@@ -105,7 +105,7 @@ export const listApps = async () => {
         throw error;
     }
 };
-export async function sendMessage(message) {
+export async function sendMessage({ message, applicationId, }) {
     const response = await fetch(`${BACKEND_API_HOST}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,6 +113,7 @@ export async function sendMessage(message) {
             message,
             clientSource: 'cli',
             userId: generateMachineId(),
+            applicationId,
         }),
     });
     if (!response.ok) {
@@ -136,18 +137,13 @@ export function subscribeToMessages({ applicationId, traceId, }, { onNewMessage,
             const data = JSON.parse(event.data);
             onNewMessage(data);
             if (data.status === 'running') {
-                console.log(chalk.yellow('⚙️ Processing...\n'));
-                renderParts(data.parts);
                 assistantResponse += extractText(data.parts);
                 // ✅ Handle stream completion flag
                 if (data.done) {
-                    console.log(chalk.green('\n✅ Done signal received.\n'));
                     es.close();
                 }
             }
             if (data.status === 'idle') {
-                console.log(chalk.green('\n✅ Response complete:\n'));
-                renderParts(data.parts);
                 assistantResponse += extractText(data.parts);
                 es.close();
             }
@@ -167,26 +163,6 @@ export function subscribeToMessages({ applicationId, traceId, }, { onNewMessage,
         es.close();
     });
     return es;
-}
-// Helper to render message parts
-function renderParts(parts) {
-    parts.forEach((part) => {
-        if (part.type === 'text') {
-            console.log(part.content);
-        }
-        else if (part.type === 'interactive') {
-            console.log(chalk.cyan('\n💡 Interactive Options:'));
-            part.elements?.forEach((element) => {
-                if (element.type === 'choice') {
-                    console.log(chalk.cyan(`\n❓ ${element.questionId}`));
-                    element.options?.forEach((opt, i) => console.log(`  ${i + 1}. ${opt.label} (${opt.value})`));
-                }
-                else if (element.type === 'action') {
-                    console.log(`⚙️  Action: ${element.label} (${element.id})`);
-                }
-            });
-        }
-    });
 }
 // Helper to accumulate text for history
 function extractText(parts) {

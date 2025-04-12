@@ -35,6 +35,7 @@ export type FreeTextProps = {
   retryMessage?: string;
   onSubmitSuccess?: (args: FreeTextSuccessProps) => void;
   onSubmitError?: (args: FreeTextErrorProps) => void;
+  showPrompt?: boolean;
 } & (
   | StatusProps
   | {
@@ -130,6 +131,7 @@ export const FreeText = (props: FreeTextProps) => {
     loadingText,
     onSubmitError,
     onSubmitSuccess,
+    showPrompt = true,
   } = props;
 
   const [submittedValue, setSubmittedValue] = useState('');
@@ -163,6 +165,8 @@ export const FreeText = (props: FreeTextProps) => {
     props.successMessage,
     question,
   ]);
+
+  if (!showPrompt) return null;
 
   return (
     <>

@@ -975,6 +975,8 @@ app.post(
 // Platform endpoint that forwards to the agent and streams back responses
 app.post("/message", async (request, reply) => {
   try {
+    console.log("WTFFfffffffffffff");
+
     const applicationTraceId = (appId: string | undefined) =>
       appId ? `app-${appId}.req-${request.id}` : `temp.req-${request.id}`;
     app.log.info("Received message request", {
@@ -1047,6 +1049,11 @@ app.post("/message", async (request, reply) => {
       prompt: requestBody.message,
       appId: applicationId,
       kind: "user",
+    });
+
+    console.log({
+      applicationId,
+      requestApplicationId: requestBody.applicationId,
     });
 
     app.log.info({

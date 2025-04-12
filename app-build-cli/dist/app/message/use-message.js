@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sendMessage, subscribeToMessages } from '../application.js';
 import { useEffect } from 'react';
+import { applicationQueryKeys, useApplication } from '../use-application.js';
 const queryKeys = {
     applicationMessages: (id) => ['apps', id],
 };
@@ -32,33 +33,49 @@ const useSubscribeToMessages = (params) => {
     }, [queryClient, applicationId, traceId]);
 };
 const useSendMessage = () => {
+    const queryClient = useQueryClient();
     const [messageResult, setMessageResult] = useState(undefined);
     useSubscribeToMessages(messageResult);
-    return useMutation({
-        mutationFn: async (message) => {
-            return sendMessage(message);
+    const result = useMutation({
+        mutationFn: async ({ message, applicationId, }) => {
+            return sendMessage({ message, applicationId });
         },
         onSuccess: (result) => {
             setMessageResult(result);
+            void queryClient.invalidateQueries({
+                queryKey: applicationQueryKeys.app(result.applicationId),
+            });
         },
     });
+    // we need this to keep the previous application id
+    return { ...result, data: messageResult };
 };
-export const useBuildApp = () => {
+export const useBuildApp = (existingApplicationId) => {
     const queryClient = useQueryClient();
-    const { mutate: sendMessage, error: sendMessageError, isPending: sendMessagePending, isSuccess: sendMessageSuccess, status: sendMessageStatus, } = useSendMessage();
+    const { mutate: sendMessage, data: sendMessageData, error: sendMessageError, isPending: sendMessagePending, isSuccess: sendMessageSuccess, status: sendMessageStatus, } = useSendMessage();
+    const messagesData = useMemo(() => {
+        const appId = existingApplicationId ?? sendMessageData?.applicationId;
+        if (!appId)
+            return undefined;
+        const messages = queryClient.getQueryData(queryKeys.applicationMessages(appId));
+        return messages;
+    }, [existingApplicationId, queryClient, sendMessageData?.applicationId]);
     const messageQuery = useQuery({
-        queryKey: queryKeys.applicationMessages('123'),
-        queryFn: () => queryClient.getQueryData(queryKeys.applicationMessages('123')),
+        // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain, @tanstack/query/exhaustive-deps
+        queryKey: queryKeys.applicationMessages(sendMessageData?.applicationId),
+        queryFn: () => messagesData,
         // this only reads the cached data
         enabled: false,
     });
     return {
-        startBuilding: sendMessage,
-        data: messageQuery.data,
-        error: sendMessageError,
-        isPending: sendMessagePending,
-        isSuccess: sendMessageSuccess,
-        status: sendMessageStatus,
+        createApplication: sendMessage,
+        createApplicationData: sendMessageData,
+        createApplicationError: sendMessageError,
+        createApplicationPending: sendMessagePending,
+        createApplicationSuccess: sendMessageSuccess,
+        createApplicationStatus: sendMessageStatus,
+        streamingMessagesData: messageQuery.data,
+        isStreamingMessages: messageQuery.data?.messages.at(-1)?.status === 'streaming',
     };
 };
 //# sourceMappingURL=use-message.js.map

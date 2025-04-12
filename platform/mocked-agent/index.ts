@@ -4,6 +4,7 @@ import { FastifySSEPlugin } from "fastify-sse-v2";
 export const fastify = Fastify({
   logger: true,
 });
+import { randomUUID } from "node:crypto";
 
 fastify.register(FastifySSEPlugin, {
   retryDelay: 5_000, // 5 seconds
@@ -232,6 +233,8 @@ fastify.get("/message", async (request, reply) => {
         event: "message",
         data: JSON.stringify({
           type: "message",
+          phase: "typespec",
+          id: randomUUID(),
           parts: [
             {
               type: "text",
@@ -251,7 +254,9 @@ fastify.get("/message", async (request, reply) => {
       yield {
         event: "message",
         data: JSON.stringify({
+          phase: "handlers",
           type: "message",
+          id: randomUUID(),
           parts: [
             {
               type: "text",
@@ -272,6 +277,8 @@ fastify.get("/message", async (request, reply) => {
         event: "message",
         data: JSON.stringify({
           type: "message",
+          phase: "running-tests",
+          id: randomUUID(),
           parts: [
             {
               type: "text",
@@ -292,11 +299,12 @@ fastify.get("/message", async (request, reply) => {
         event: "message",
         data: JSON.stringify({
           type: "message",
+          phase: "frontend",
+          id: randomUUID(),
           parts: [
             {
               type: "text",
-              content:
-                '```jsx\nimport React, { useState } from \'react\';\n\nfunction ContactForm() {\n  const [formData, setFormData] = useState({\n    name: \'\',\n    email: \'\',\n    message: \'\'\n  });\n\n  const handleChange = (e) => {\n    const { name, value } = e.target;\n    setFormData({\n      ...formData,\n      [name]: value\n    });\n  };\n\n  const handleSubmit = (e) => {\n    e.preventDefault();\n    console.log(\'Form submitted:\', formData);\n    // Add API call to send data\n  };\n\n  return (\n    <form onSubmit={handleSubmit}>\n      <div>\n        <label htmlFor="name">Name:</label>\n        <input\n          type="text"\n          id="name"\n          name="name"\n          value={formData.name}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <div>\n        <label htmlFor="email">Email:</label>\n        <input\n          type="email"\n          id="email"\n          name="email"\n          value={formData.email}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <div>\n        <label htmlFor="message">Message:</label>\n        <textarea\n          id="message"\n          name="message"\n          value={formData.message}\n          onChange={handleChange}\n          required\n        />\n      </div>\n      <button type="submit">Submit</button>\n    </form>\n  );\n}\n\nexport default ContactForm;\n```\n',
+              content: "123",
             },
           ],
           applicationId,
@@ -312,6 +320,8 @@ fastify.get("/message", async (request, reply) => {
         event: "message",
         data: JSON.stringify({
           type: "message",
+          phase: "frontend",
+          id: randomUUID(),
           parts: [
             {
               type: "text",
@@ -331,20 +341,16 @@ fastify.get("/message", async (request, reply) => {
                     { value: "survey", label: "Survey Form" },
                   ],
                 },
-                {
-                  type: "action",
-                  id: "add_validation",
-                  label: "Add Form Validation",
-                },
               ],
             },
           ],
           applicationId,
-          status: "streaming",
+          status: "idle",
           traceId,
         }),
       };
 
+      /*
       await new Promise((res) => setTimeout(res, 1000));
 
       // Final completion message
@@ -352,12 +358,13 @@ fastify.get("/message", async (request, reply) => {
         event: "message",
         data: JSON.stringify({
           type: "message",
+          id: randomUUID(),
           parts: [{ type: "text", content: "All done!" }],
           applicationId,
           status: "idle",
           traceId,
         }),
-      };
+      };*/
     })(),
   );
 });

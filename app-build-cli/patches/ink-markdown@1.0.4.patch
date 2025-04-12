@@ -1,0 +1,41 @@
+diff --git a/build/index.js b/build/index.js
+index 1d6cd8585eddefb21b827065636c2a1bd75705ae..355ebc5819d696b8dc55f8b2a6cffbf03a8ebde5 100644
+--- a/build/index.js
++++ b/build/index.js
+@@ -1,14 +1,11 @@
+-"use strict";
+-var __importDefault = (this && this.__importDefault) || function (mod) {
+-    return (mod && mod.__esModule) ? mod : { "default": mod };
+-};
+-Object.defineProperty(exports, "__esModule", { value: true });
+-const react_1 = __importDefault(require("react"));
+-const marked_1 = require("marked");
+-const ink_1 = require("ink");
+-const marked_terminal_1 = __importDefault(require("marked-terminal"));
++import React from 'react';
++import { parse, setOptions } from 'marked';
++import { Text } from 'ink';
++import MarkedTerminal from 'marked-terminal';
++
+ function Markdown({ children, ...options }) {
+-    (0, marked_1.setOptions)({ renderer: new marked_terminal_1.default(options) });
+-    return react_1.default.createElement(ink_1.Text, null, (0, marked_1.parse)(children).trim());
++    setOptions({ renderer: new MarkedTerminal(options) });
++    return React.createElement(Text, null, parse(children).trim());
+ }
+-exports.default = Markdown;
++
++export default Markdown;
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index 05089651a43f37cec1fcda28560ac6b194f19a63..34ed987ed54da4b072fad6915f0d3ae6c0cfadf6 100644
+--- a/package.json
++++ b/package.json
+@@ -17,6 +17,7 @@
+     "console",
+     "command-line"
+   ],
++  "type": "module",
+   "scripts": {
+     "prebuild": "rm -rf ./build",
+     "build": "tsc",

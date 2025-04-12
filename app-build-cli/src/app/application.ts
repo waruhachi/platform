@@ -172,7 +172,13 @@ export const listApps = async () => {
   }
 };
 
-export async function sendMessage(message: string) {
+export async function sendMessage({
+  message,
+  applicationId,
+}: {
+  message: string;
+  applicationId?: string;
+}) {
   const response = await fetch(`${BACKEND_API_HOST}/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -180,6 +186,7 @@ export async function sendMessage(message: string) {
       message,
       clientSource: 'cli',
       userId: generateMachineId(),
+      applicationId,
     }),
   });
 
@@ -231,20 +238,15 @@ export function subscribeToMessages(
       onNewMessage(data);
 
       if (data.status === 'running') {
-        console.log(chalk.yellow('⚙️ Processing...\n'));
-        renderParts(data.parts);
         assistantResponse += extractText(data.parts);
 
         // ✅ Handle stream completion flag
         if (data.done) {
-          console.log(chalk.green('\n✅ Done signal received.\n'));
           es.close();
         }
       }
 
       if (data.status === 'idle') {
-        console.log(chalk.green('\n✅ Response complete:\n'));
-        renderParts(data.parts);
         assistantResponse += extractText(data.parts);
         es.close();
       }
@@ -267,27 +269,6 @@ export function subscribeToMessages(
   });
 
   return es;
-}
-
-// Helper to render message parts
-function renderParts(parts: any[]) {
-  parts.forEach((part) => {
-    if (part.type === 'text') {
-      console.log(part.content);
-    } else if (part.type === 'interactive') {
-      console.log(chalk.cyan('\n💡 Interactive Options:'));
-      part.elements?.forEach((element: any) => {
-        if (element.type === 'choice') {
-          console.log(chalk.cyan(`\n❓ ${element.questionId}`));
-          element.options?.forEach((opt: any, i: number) =>
-            console.log(`  ${i + 1}. ${opt.label} (${opt.value})`)
-          );
-        } else if (element.type === 'action') {
-          console.log(`⚙️  Action: ${element.label} (${element.id})`);
-        }
-      });
-    }
-  });
 }
 
 // Helper to accumulate text for history
