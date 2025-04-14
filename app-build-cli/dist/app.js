@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { InfiniteFreeText } from './components/shared/free-text.js';
 import { Box } from 'ink';
@@ -7,6 +7,7 @@ import { useBuildApp } from './app/message/use-message.js';
 import { BuildingBlock } from './components/shared/building-block.js';
 import { Panel } from './components/shared/panel.js';
 import { TaskStatus, } from './components/shared/task-status.js';
+import { DebugPanel, useDebug } from './debug/debugger-panel.js';
 const queryClient = new QueryClient();
 // refresh the app every 100ms
 const useKeepAlive = () => useEffect(() => {
@@ -14,10 +15,11 @@ const useKeepAlive = () => useEffect(() => {
 }, []);
 export const App = () => {
     useKeepAlive();
-    return (_jsx(QueryClientProvider, { client: queryClient, children: _jsx(MockedAgentAppScreen, {}) }));
+    return (_jsx(QueryClientProvider, { client: queryClient, children: _jsx(Box, { width: "100%", height: "100%", children: _jsx(MockedAgentAppScreen, {}) }) }));
 };
 export const MockedAgentAppScreen = () => {
     const { createApplication, createApplicationData, createApplicationError, createApplicationStatus, streamingMessagesData, isStreamingMessages, } = useBuildApp();
+    const { addLog } = useDebug();
     const getPhaseTitle = (phase) => {
         switch (phase) {
             case 'typespec':
@@ -92,6 +94,10 @@ export const MockedAgentAppScreen = () => {
                         return null;
                     }))
                         .filter((msg) => msg !== null);
+                    addLog({
+                        phase: group.phase,
+                        phaseIndex: groupIndex,
+                    });
                     return (_jsx(TaskStatus, { title: getPhaseTitle(group.phase), status: status, details: phaseMessages }, `${group.phase}-${groupIndex}`));
                 }) }) }));
     };
@@ -122,6 +128,12 @@ export const MockedAgentAppScreen = () => {
         if (options.length === 0)
             return null;
         return (_jsx(BuildingBlock, { type: "select", question: "Select an option", status: createApplicationStatus, options: options, onSubmit: (value) => {
+                const selectedOpt = options.find((opt) => opt.value === value);
+                // add the user selected option to the client state messages
+                streamingMessagesData?.messages.at(-1)?.parts?.push({
+                    type: 'text',
+                    content: `Selected: ${selectedOpt?.label || value}`,
+                });
                 createApplication({
                     message: value,
                     applicationId: createApplicationData?.applicationId,

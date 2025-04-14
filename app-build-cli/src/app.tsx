@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { InfiniteFreeText } from './components/shared/free-text.js';
 import { Box } from 'ink';
@@ -9,6 +9,7 @@ import {
   TaskStatus,
   type TaskDetail,
 } from './components/shared/task-status.js';
+import { DebugPanel, useDebug } from './debug/debugger-panel.js';
 
 const queryClient = new QueryClient();
 
@@ -23,7 +24,9 @@ export const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MockedAgentAppScreen />
+      <Box width="100%" height="100%">
+        <MockedAgentAppScreen />
+      </Box>
     </QueryClientProvider>
   );
 };
@@ -37,6 +40,8 @@ export const MockedAgentAppScreen = () => {
     streamingMessagesData,
     isStreamingMessages,
   } = useBuildApp();
+
+  const { addLog } = useDebug();
 
   const getPhaseTitle = (phase: string) => {
     switch (phase) {
@@ -148,6 +153,11 @@ export const MockedAgentAppScreen = () => {
               )
               .filter((msg): msg is TaskDetail => msg !== null);
 
+            addLog({
+              phase: group.phase,
+              phaseIndex: groupIndex,
+            });
+
             return (
               <TaskStatus
                 key={`${group.phase}-${groupIndex}`}
@@ -198,6 +208,14 @@ export const MockedAgentAppScreen = () => {
         status={createApplicationStatus}
         options={options}
         onSubmit={(value: string) => {
+          const selectedOpt = options.find((opt) => opt.value === value);
+
+          // add the user selected option to the client state messages
+          streamingMessagesData?.messages.at(-1)?.parts?.push({
+            type: 'text',
+            content: `Selected: ${selectedOpt?.label || value}`,
+          });
+
           createApplication({
             message: value,
             applicationId: createApplicationData?.applicationId,
