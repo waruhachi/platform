@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import { Select } from '../components/shared/select.js';
 import { useSafeNavigate } from '../routes.js';
 const items = [
-    { label: '🆕 Create new app', value: '/app/create' },
+    { label: '🆕 Create new app', value: '/app/build' },
     {
         label: '📋 List and iterate existing applications',
         value: '/apps',

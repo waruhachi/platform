@@ -14,7 +14,6 @@ import { AppHomeScreen } from './app/app-home-screen.js';
 import { CreateAppScreen } from './app/create-app-screen.js';
 import { AppsListScreen } from './app/apps-list-screen.js';
 import { AppDetails } from './app/app-details.js';
-
 import { z, ZodObject, ZodType } from 'zod';
 import {
   steps as appSteps,
@@ -23,6 +22,7 @@ import {
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { Banner } from './components/ui/Banner.js';
+import { AppBuildScreen } from './app/app-build-screen.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
@@ -69,8 +69,19 @@ const ROUTES_DEFINITIONS = [
     element: <AppHomeScreen />,
   },
   {
+    // TODO: let's remove this once we have a proper AppBuild screen
     path: '/app/create' as const,
     element: <CreateAppScreen />,
+    searchParams: {
+      step: z
+        .enum(Object.keys(appSteps) as [AppStepType, ...AppStepType[]])
+        .default('environment'),
+      appId: z.string().optional(),
+    },
+  },
+  {
+    path: '/app/build' as const,
+    element: <AppBuildScreen />,
     searchParams: {
       step: z
         .enum(Object.keys(appSteps) as [AppStepType, ...AppStepType[]])

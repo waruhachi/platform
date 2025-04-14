@@ -3,7 +3,7 @@ import { Select } from '../components/shared/select.js';
 import { useSafeNavigate, type RoutePath } from '../routes.js';
 
 const items = [
-  { label: '🆕 Create new app', value: '/app/create' as const },
+  { label: '🆕 Create new app', value: '/app/build' as const },
   {
     label: '📋 List and iterate existing applications',
     value: '/apps' as const,
