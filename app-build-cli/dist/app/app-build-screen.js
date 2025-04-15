@@ -7,6 +7,9 @@ import { TaskStatus, } from '../components/shared/task-status.js';
 import { useDebug } from '../debug/debugger-panel.js';
 import { useBuildApp } from './message/use-message.js';
 export const AppBuildScreen = () => {
+    return _jsx(AppBuildTextArea, { initialPrompt: "What would you like to build?" });
+};
+export function AppBuildTextArea({ initialPrompt }) {
     const { createApplication, createApplicationData, createApplicationError, createApplicationStatus, streamingMessagesData, isStreamingMessages, } = useBuildApp();
     const { addLog } = useDebug();
     const getPhaseTitle = (phase) => {
@@ -129,9 +132,9 @@ export const AppBuildScreen = () => {
                 });
             } }));
     };
-    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(InfiniteFreeText, { successMessage: "Application build started...", question: "What would you like to build?", placeholder: "e.g., Add a new feature, modify behavior, or type 'exit' to finish", onSubmit: (text) => createApplication({ message: text }), status: createApplicationStatus, errorMessage: createApplicationError?.message, loadingText: "Applying changes...", retryMessage: "Please retry.", showPrompt: !streamingMessagesData }), streamingMessagesData && renderBuildStages(), streamingMessagesData && renderInteractiveContent(), _jsx(InfiniteFreeText, { successMessage: "The requested changes are being applied...", question: "How would you like to modify your application?", placeholder: "e.g., Add a new feature, modify behavior, or type 'exit' to finish", onSubmit: (text) => isStreamingMessages ? undefined : createApplication({ message: text }), status: createApplicationStatus, errorMessage: createApplicationError?.message, loadingText: "Applying changes...", retryMessage: "Please retry.", showPrompt: Boolean(streamingMessagesData &&
+    return (_jsxs(Box, { flexDirection: "column", children: [_jsx(InfiniteFreeText, { question: initialPrompt, successMessage: "Application build started...", placeholder: "e.g., Add a new feature, modify behavior, or type 'exit' to finish", onSubmit: (text) => createApplication({ message: text }), status: createApplicationStatus, errorMessage: createApplicationError?.message, loadingText: "Applying changes...", retryMessage: "Please retry.", showPrompt: !streamingMessagesData }), streamingMessagesData && renderBuildStages(), streamingMessagesData && renderInteractiveContent(), _jsx(InfiniteFreeText, { question: "How would you like to modify your application?", successMessage: "The requested changes are being applied...", placeholder: "e.g., Add a new feature, modify behavior, or type 'exit' to finish", onSubmit: (text) => isStreamingMessages ? undefined : createApplication({ message: text }), status: createApplicationStatus, errorMessage: createApplicationError?.message, loadingText: "Applying changes...", retryMessage: "Please retry.", showPrompt: Boolean(streamingMessagesData &&
                     !isStreamingMessages &&
                     streamingMessagesData?.messages.at(-1)?.parts.at(-1)?.type !==
                         'interactive') })] }));
-};
+}
 //# sourceMappingURL=app-build-screen.js.map

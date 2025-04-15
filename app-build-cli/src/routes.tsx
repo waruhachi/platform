@@ -9,7 +9,6 @@ import {
   type URLSearchParamsInit,
 } from 'react-router';
 import queryString from 'query-string';
-
 import { AppHomeScreen } from './app/app-home-screen.js';
 import { CreateAppScreen } from './app/create-app-screen.js';
 import { AppsListScreen } from './app/apps-list-screen.js';

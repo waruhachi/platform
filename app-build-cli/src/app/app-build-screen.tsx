@@ -9,7 +9,15 @@ import {
 import { useDebug } from '../debug/debugger-panel.js';
 import { useBuildApp } from './message/use-message.js';
 
+type AppBuildTextAreaProps = {
+  initialPrompt: string;
+};
+
 export const AppBuildScreen = () => {
+  return <AppBuildTextArea initialPrompt="What would you like to build?" />;
+};
+
+export function AppBuildTextArea({ initialPrompt }: AppBuildTextAreaProps) {
   const {
     createApplication,
     createApplicationData,
@@ -206,8 +214,8 @@ export const AppBuildScreen = () => {
   return (
     <Box flexDirection="column">
       <InfiniteFreeText
+        question={initialPrompt}
         successMessage="Application build started..."
-        question="What would you like to build?"
         placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
         onSubmit={(text: string) => createApplication({ message: text })}
         status={createApplicationStatus}
@@ -221,8 +229,8 @@ export const AppBuildScreen = () => {
       {streamingMessagesData && renderInteractiveContent()}
 
       <InfiniteFreeText
-        successMessage="The requested changes are being applied..."
         question="How would you like to modify your application?"
+        successMessage="The requested changes are being applied..."
         placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
         onSubmit={(text: string) =>
           isStreamingMessages ? undefined : createApplication({ message: text })
@@ -240,4 +248,4 @@ export const AppBuildScreen = () => {
       />
     </Box>
   );
-};
+}
