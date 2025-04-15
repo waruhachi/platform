@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { sendMessage, subscribeToMessages } from '../application.js';
+import { useMutation, useQuery, useQueryClient, } from '@tanstack/react-query';
+import { sendMessage, subscribeToMessages, } from '../application.js';
 import { useEffect } from 'react';
-import { applicationQueryKeys, useApplication } from '../use-application.js';
+import { applicationQueryKeys } from '../use-application.js';
 const queryKeys = {
     applicationMessages: (id) => ['apps', id],
 };
@@ -37,7 +37,7 @@ const useSendMessage = () => {
     const [messageResult, setMessageResult] = useState(undefined);
     useSubscribeToMessages(messageResult);
     const result = useMutation({
-        mutationFn: async ({ message, applicationId, }) => {
+        mutationFn: async ({ message, applicationId }) => {
             return sendMessage({ message, applicationId });
         },
         onSuccess: (result) => {

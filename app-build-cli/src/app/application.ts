@@ -172,13 +172,20 @@ export const listApps = async () => {
   }
 };
 
+export type SendMessageParams = {
+  message: string;
+  applicationId?: string;
+};
+
+export type SendMessageResult = {
+  applicationId: string;
+  traceId: string;
+};
+
 export async function sendMessage({
   message,
   applicationId,
-}: {
-  message: string;
-  applicationId?: string;
-}) {
+}: SendMessageParams): Promise<SendMessageResult> {
   const response = await fetch(`${BACKEND_API_HOST}/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

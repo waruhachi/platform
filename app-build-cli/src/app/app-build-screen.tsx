@@ -194,18 +194,23 @@ export function AppBuildTextArea({ initialPrompt }: AppBuildTextAreaProps) {
         status={createApplicationStatus}
         options={options}
         onSubmit={(value: string) => {
-          const selectedOpt = options.find((opt) => opt.value === value);
+          createApplication(
+            {
+              message: value,
+              applicationId: createApplicationData?.applicationId,
+            },
+            {
+              onSuccess: () => {
+                const selectedOpt = options.find((opt) => opt.value === value);
 
-          // add the user selected option to the client state messages
-          streamingMessagesData?.messages.at(-1)?.parts?.push({
-            type: 'text',
-            content: `Selected: ${selectedOpt?.label || value}`,
-          });
-
-          createApplication({
-            message: value,
-            applicationId: createApplicationData?.applicationId,
-          });
+                // add the user selected option to the client state messages
+                streamingMessagesData?.messages.at(-1)?.parts?.push({
+                  type: 'text',
+                  content: `Selected: ${selectedOpt?.label || value}`,
+                });
+              },
+            }
+          );
         }}
       />
     );

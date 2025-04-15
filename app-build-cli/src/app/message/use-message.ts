@@ -1,8 +1,18 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { sendMessage, subscribeToMessages } from '../application.js';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationOptions,
+} from '@tanstack/react-query';
+import {
+  sendMessage,
+  subscribeToMessages,
+  type SendMessageParams,
+  type SendMessageResult,
+} from '../application.js';
 import { useEffect } from 'react';
-import { applicationQueryKeys, useApplication } from '../use-application.js';
+import { applicationQueryKeys } from '../use-application.js';
 
 export type ChoiceElement = {
   type: 'choice';
@@ -102,13 +112,7 @@ const useSendMessage = () => {
   useSubscribeToMessages(messageResult);
 
   const result = useMutation({
-    mutationFn: async ({
-      message,
-      applicationId,
-    }: {
-      message: string;
-      applicationId?: string;
-    }) => {
+    mutationFn: async ({ message, applicationId }: SendMessageParams) => {
       return sendMessage({ message, applicationId });
     },
     onSuccess: (result) => {

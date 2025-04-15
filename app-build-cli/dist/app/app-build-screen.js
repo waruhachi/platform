@@ -120,15 +120,18 @@ export function AppBuildTextArea({ initialPrompt }) {
         if (options.length === 0)
             return null;
         return (_jsx(BuildingBlock, { type: "select", question: "Select an option", status: createApplicationStatus, options: options, onSubmit: (value) => {
-                const selectedOpt = options.find((opt) => opt.value === value);
-                // add the user selected option to the client state messages
-                streamingMessagesData?.messages.at(-1)?.parts?.push({
-                    type: 'text',
-                    content: `Selected: ${selectedOpt?.label || value}`,
-                });
                 createApplication({
                     message: value,
                     applicationId: createApplicationData?.applicationId,
+                }, {
+                    onSuccess: () => {
+                        const selectedOpt = options.find((opt) => opt.value === value);
+                        // add the user selected option to the client state messages
+                        streamingMessagesData?.messages.at(-1)?.parts?.push({
+                            type: 'text',
+                            content: `Selected: ${selectedOpt?.label || value}`,
+                        });
+                    },
                 });
             } }));
     };
