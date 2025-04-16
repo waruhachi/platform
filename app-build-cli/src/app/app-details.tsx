@@ -1,9 +1,9 @@
 import { Box, Text } from 'ink';
-import { useApplication, useGenerateApp } from './use-application.js';
+import { useApplication } from './use-application.js';
 import { useRouteParams } from '../routes.js';
 import { getStatusEmoji, getStatusColor } from './apps-list-screen.js';
-import { InfiniteFreeText } from '../components/shared/free-text.js';
 import { Panel } from '../components/shared/panel.js';
+import { AppBuildTextArea } from './app-build-screen.js';
 
 export function AppDetails() {
   const { appId } = useRouteParams('/apps/:appId');
@@ -12,11 +12,6 @@ export function AppDetails() {
     isLoading: isLoadingApp,
     error: errorApp,
   } = useApplication(appId);
-  const {
-    mutate: generateAppIteration,
-    status: generateAppIterationStatus,
-    error: generateAppIterationError,
-  } = useGenerateApp();
 
   if (isLoadingApp) {
     return <Text>Loading...</Text>;
@@ -66,22 +61,7 @@ export function AppDetails() {
       </Panel>
 
       <Box marginTop={2}>
-        <InfiniteFreeText
-          successMessage="Changes applied successfully"
-          question="How would you like to modify your application?"
-          placeholder="e.g., Add a new feature, modify behavior, or type 'exit' to finish"
-          onSubmit={(text: string) =>
-            generateAppIteration({
-              prompt: text,
-              appId: app.id,
-              useStaging: false,
-            })
-          }
-          status={generateAppIterationStatus}
-          errorMessage={generateAppIterationError?.message}
-          loadingText="Applying changes..."
-          retryMessage="Please retry."
-        />
+        <AppBuildTextArea initialPrompt="How would you like to modify your application?" />
       </Box>
     </Box>
   );

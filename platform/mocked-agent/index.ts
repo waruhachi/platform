@@ -1,8 +1,13 @@
 import Fastify from "fastify";
 import type { FastifyRequest, FastifyReply } from "fastify";
-
+import { FastifySSEPlugin } from "fastify-sse-v2";
 export const fastify = Fastify({
   logger: true,
+});
+import { randomUUID } from "node:crypto";
+
+fastify.register(FastifySSEPlugin, {
+  retryDelay: 5_000, // 5 seconds
 });
 
 // Mock response for /prepare endpoint
@@ -191,6 +196,178 @@ fastify.post(
     return reply.status(200).send({});
   },
 );
+
+// Main /message endpoint
+fastify.post("/message", async (request, reply) => {
+  const { allMessages, applicationId, traceId } = request.body as {
+    allMessages: string[];
+    applicationId?: string;
+    traceId: string;
+  };
+
+  if (!allMessages || !traceId) {
+    return reply.status(400).send({
+      error: "Missing required fields: allMessages, traceId",
+    });
+  }
+
+  return {
+    status: "accepted",
+    message: "Message received and processing started",
+  };
+});
+
+fastify.get("/message", async (request, reply) => {
+  const { applicationId, traceId } = request.query as any;
+
+  if (!applicationId) {
+    return reply.status(400).send({
+      error: "Missing required query parameter: applicationId",
+    });
+  }
+
+  reply.sse(
+    (async function* () {
+      // Introduction message
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          phase: "typespec",
+          id: randomUUID(),
+          parts: [
+            {
+              type: "text",
+              content:
+                "I'll help you create a React component with a form. Let's start with a basic contact form.\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Steps message
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          phase: "handlers",
+          type: "message",
+          id: randomUUID(),
+          parts: [
+            {
+              type: "text",
+              content:
+                "We'll need to:\n1. Create a form with input fields\n2. Manage form state with React hooks\n3. Handle form submission\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Code introduction
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          phase: "running-tests",
+          id: randomUUID(),
+          parts: [
+            {
+              type: "text",
+              content:
+                "Here's a basic structure for a contact form component:\n\n",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Code block
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          phase: "frontend",
+          id: randomUUID(),
+          parts: [
+            {
+              type: "text",
+              content: "123",
+            },
+          ],
+          applicationId,
+          status: "streaming",
+          traceId,
+        }),
+      };
+
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Question and interactive options
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          phase: "frontend",
+          id: randomUUID(),
+          parts: [
+            {
+              type: "text",
+              content:
+                "What kind of form would you like to create? I can customize this example based on your specific needs.",
+            },
+            {
+              type: "interactive",
+              elements: [
+                {
+                  type: "choice",
+                  questionId: "form_type",
+                  options: [
+                    { value: "login", label: "Login Form" },
+                    { value: "signup", label: "Signup Form" },
+                    { value: "payment", label: "Payment Form" },
+                    { value: "survey", label: "Survey Form" },
+                  ],
+                },
+              ],
+            },
+          ],
+          applicationId,
+          status: "idle",
+          traceId,
+        }),
+      };
+
+      /*
+      await new Promise((res) => setTimeout(res, 1000));
+
+      // Final completion message
+      yield {
+        event: "message",
+        data: JSON.stringify({
+          type: "message",
+          id: randomUUID(),
+          parts: [{ type: "text", content: "All done!" }],
+          applicationId,
+          status: "idle",
+          traceId,
+        }),
+      };*/
+    })(),
+  );
+});
 
 // Start the server
 export const start = async () => {

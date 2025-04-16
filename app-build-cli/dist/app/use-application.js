@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient, } from '@tanstack/react-query';
 import { generateApp, generateAppSpec, getApp, listApps, } from './application.js';
 import { useSafeSearchParams } from '../routes.js';
-const queryKeys = {
+export const applicationQueryKeys = {
     app: (appId) => ['apps', appId],
     apps: ['apps'],
 };
 export const useApplication = (appId, options) => {
     return useQuery({
-        queryKey: queryKeys.app(appId ?? ''),
+        queryKey: applicationQueryKeys.app(appId ?? ''),
         queryFn: () => getApp(appId),
         enabled: !!appId,
         ...options,
@@ -15,7 +15,7 @@ export const useApplication = (appId, options) => {
 };
 export const useListApps = () => {
     return useQuery({
-        queryKey: queryKeys.apps,
+        queryKey: applicationQueryKeys.apps,
         queryFn: listApps,
     });
 };
@@ -33,7 +33,7 @@ export const useGenerateAppSpecs = (options = {}) => {
                 step: 'generateApp',
             });
             void queryClient.invalidateQueries({
-                queryKey: queryKeys.app(data.appId),
+                queryKey: applicationQueryKeys.app(data.appId),
             });
             options.onSuccess?.(data, params);
         },
@@ -50,7 +50,7 @@ export const useGenerateApp = (options = {}) => {
         },
         onSuccess: (data) => {
             void queryClient.invalidateQueries({
-                queryKey: queryKeys.app(data.appId),
+                queryKey: applicationQueryKeys.app(data.appId),
             });
             options.onSuccess?.(data);
         },

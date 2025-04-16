@@ -41,7 +41,7 @@ export const InfiniteFreeText = (props) => {
     return (_jsxs(Box, { flexDirection: "column", gap: 1, width: "100%", children: [inputsHistory.map((input, index) => input.status === 'error' ? (_jsx(FreeTextError, { ...input }, index)) : (_jsx(FreeTextSuccess, { ...input }, index))), _jsx(FreeText, { ...props, onSubmitError: onSubmitError, onSubmitSuccess: onSubmitSuccess, status: freeInputStatus })] }));
 };
 export const FreeText = (props) => {
-    const { question, onSubmit, placeholder, status, loadingText, onSubmitError, onSubmitSuccess, } = props;
+    const { question, onSubmit, placeholder, status, loadingText, onSubmitError, onSubmitSuccess, showPrompt = true, } = props;
     const [submittedValue, setSubmittedValue] = useState('');
     useEffect(() => {
         if (status === 'error' && submittedValue) {
@@ -71,6 +71,8 @@ export const FreeText = (props) => {
         props.successMessage,
         question,
     ]);
+    if (!showPrompt)
+        return null;
     return (_jsx(_Fragment, { children: _jsx(Panel, { title: question, variant: "default", boxProps: { width: '100%' }, children: _jsxs(Box, { flexDirection: "column", gap: 1, children: [_jsxs(Box, { children: [_jsx(Text, { color: "blue", children: "\u276F " }), submittedValue ? (_jsx(Text, { color: "gray", children: submittedValue })) : (_jsx(InkTextInput, { placeholder: placeholder, onSubmit: (value) => {
                                     setSubmittedValue(value);
                                     onSubmit(value);

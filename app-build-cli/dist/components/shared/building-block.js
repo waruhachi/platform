@@ -3,6 +3,7 @@ import { FreeText } from './free-text.js';
 import ConfirmPrompt, {} from './confirm-prompt.js';
 import { Select } from './select.js';
 import { MultiSelect } from './multi-select.js';
+import { MarkdownBlock } from './markdown-block.js';
 export function BuildingBlock(props) {
     switch (props.type) {
         case 'free-text': {
@@ -14,6 +15,8 @@ export function BuildingBlock(props) {
             return _jsx(ConfirmPrompt, { ...props });
         case 'multi-select':
             return _jsx(MultiSelect, { ...props });
+        case 'markdown':
+            return _jsx(MarkdownBlock, { ...props });
     }
 }
 //# sourceMappingURL=building-block.js.map

@@ -17,7 +17,7 @@ import type {
 } from './application.js';
 import { useSafeSearchParams } from '../routes.js';
 
-const queryKeys = {
+export const applicationQueryKeys = {
   app: (appId: string) => ['apps', appId],
   apps: ['apps'],
 } as const;
@@ -27,7 +27,7 @@ export const useApplication = (
   options?: Partial<UseQueryOptions<Awaited<ReturnType<typeof getApp>>>>
 ) => {
   return useQuery({
-    queryKey: queryKeys.app(appId ?? ''),
+    queryKey: applicationQueryKeys.app(appId ?? ''),
     queryFn: () => getApp(appId!),
     enabled: !!appId,
     ...options,
@@ -36,7 +36,7 @@ export const useApplication = (
 
 export const useListApps = () => {
   return useQuery({
-    queryKey: queryKeys.apps,
+    queryKey: applicationQueryKeys.apps,
     queryFn: listApps,
   });
 };
@@ -64,7 +64,7 @@ export const useGenerateAppSpecs = (
         step: 'generateApp',
       });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.app(data.appId),
+        queryKey: applicationQueryKeys.app(data.appId),
       });
       options.onSuccess?.(data, params);
     },
@@ -87,7 +87,7 @@ export const useGenerateApp = (
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.app(data.appId),
+        queryKey: applicationQueryKeys.app(data.appId),
       });
       options.onSuccess?.(data);
     },

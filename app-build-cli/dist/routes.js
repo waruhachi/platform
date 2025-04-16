@@ -10,14 +10,26 @@ import { steps as appSteps, } from './app/steps/steps.js';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { Banner } from './components/ui/Banner.js';
+import { AppBuildScreen } from './app/app-build-screen.js';
 const ROUTES_DEFINITIONS = [
     {
         path: '/',
         element: _jsx(AppHomeScreen, {}),
     },
     {
+        // TODO: let's remove this once we have a proper AppBuild screen
         path: '/app/create',
         element: _jsx(CreateAppScreen, {}),
+        searchParams: {
+            step: z
+                .enum(Object.keys(appSteps))
+                .default('environment'),
+            appId: z.string().optional(),
+        },
+    },
+    {
+        path: '/app/build',
+        element: _jsx(AppBuildScreen, {}),
         searchParams: {
             step: z
                 .enum(Object.keys(appSteps))

@@ -20,6 +20,8 @@ import { desc, eq, getTableColumns, sql, gt } from "drizzle-orm";
 import type { Paginated, ReadUrl } from "@repo/core/types/api";
 import * as jose from "jose";
 import winston from "winston";
+import { FastifySSEPlugin } from "fastify-sse-v2";
+import { EventSource } from "eventsource";
 
 // Define the App type locally since it's not exported from @repo/core/types/api
 type App = {
@@ -67,6 +69,10 @@ function detectFlyBinary() {
     return "fly";
   }
 }
+
+const MOCKED_AGENT_API_URL = "http://0.0.0.0:5575";
+const STAGING_AGENT_API_URL = "http://18.237.53.81:8080";
+const PROD_AGENT_API_URL = "http://54.245.178.56:8080";
 
 const s3Client = new S3Client({
   credentials: {
@@ -436,6 +442,7 @@ node_modules
 export const app = fastify({
   logger: true,
   disableRequestLogging: true,
+  genReqId: () => uuidv4(),
 });
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -509,6 +516,7 @@ const deployJob = new CronJob(
 );
 
 app.register(fastifySchedule);
+app.register(FastifySSEPlugin);
 
 // `fastify.scheduler` becomes available after initialization.
 app.ready().then(() => {
@@ -773,10 +781,10 @@ app.post(
         } else {
           // If no sourceCodeFile is provided, call the /compile endpoint as before
           let AGENT_API_URL = useMockedAgent
-            ? "http://0.0.0.0:5575"
+            ? MOCKED_AGENT_API_URL
             : useStaging
-              ? "http://18.237.53.81:8080"
-              : "http://54.245.178.56:8080";
+              ? STAGING_AGENT_API_URL
+              : PROD_AGENT_API_URL;
 
           logger.info("Using agent API", {
             appId,
@@ -963,6 +971,280 @@ app.post(
     }
   },
 );
+
+// Platform endpoint that forwards to the agent and streams back responses
+app.post("/message", async (request, reply) => {
+  try {
+    console.log("WTFFfffffffffffff");
+
+    const applicationTraceId = (appId: string | undefined) =>
+      appId ? `app-${appId}.req-${request.id}` : `temp.req-${request.id}`;
+    app.log.info("Received message request", {
+      body: request.body,
+    });
+
+    const requestBody = request.body as {
+      message: string;
+      applicationId?: string;
+      clientSource: string;
+      userId: string;
+    };
+
+    const allMessages: string[] = [];
+    if (requestBody.applicationId) {
+      // get the history of prompts
+      const historyPrompts = await db
+        .select({
+          prompt: appPrompts.prompt,
+          kind: appPrompts.kind,
+        })
+        .from(appPrompts)
+        .where(eq(appPrompts.appId, requestBody.applicationId));
+      allMessages.push(...historyPrompts.map((p) => p.prompt));
+    } else {
+      allMessages.push(requestBody.message);
+    }
+
+    const body: {
+      applicationId: string | undefined;
+      allMessages: Array<string>;
+      traceId: string;
+    } = {
+      applicationId: requestBody.applicationId,
+      allMessages,
+      traceId: applicationTraceId(requestBody.applicationId),
+    };
+
+    // Forward the request to the agent
+    const agentResponse = await fetch(`${MOCKED_AGENT_API_URL}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!agentResponse.ok) {
+      const errorData = (await agentResponse.json()) as any;
+      app.log.error(`Agent returned error: ${agentResponse.status}`);
+      return reply.status(agentResponse.status).send(errorData);
+    }
+
+    let applicationId = requestBody.applicationId;
+    if (!applicationId) {
+      const newAppId = uuidv4();
+      await db.insert(apps).values({
+        id: newAppId,
+        name: requestBody.message,
+        clientSource: requestBody.clientSource,
+        ownerId: requestBody.userId,
+        traceId: applicationTraceId(newAppId),
+      });
+      applicationId = newAppId;
+    }
+
+    // insert the new user prompt
+    await db.insert(appPrompts).values({
+      id: uuidv4(),
+      prompt: requestBody.message,
+      appId: applicationId,
+      kind: "user",
+    });
+
+    console.log({
+      applicationId,
+      requestApplicationId: requestBody.applicationId,
+    });
+
+    app.log.info({
+      msg: "Upgrading traceId from bootstrap to application",
+      oldTraceId: applicationTraceId(undefined),
+      newTraceId: applicationTraceId(applicationId),
+    });
+
+    // return a success message with instructions to connect to the GET endpoint
+    return {
+      status: "success",
+      traceId: applicationTraceId(applicationId),
+      applicationId: applicationId,
+      message:
+        "Request accepted, connect to GET /message?applicationId=YOUR_APPLICATION_ID to subscribe to updates",
+    };
+  } catch (error) {
+    app.log.error(`Unhandled error: ${error}`);
+    reply.status(500).send({ error: "Internal server error" });
+  }
+});
+
+// GET endpoint for SSE streaming
+app.get("/message", async (request, reply) => {
+  try {
+    const { applicationId, traceId } = request.query as any;
+
+    // Validate applicationId
+    if (!applicationId) {
+      app.log.error("Missing required query parameter: applicationId", {
+        query: request.query,
+        endpoint: request.url,
+        method: request.method,
+      });
+      return reply.status(400).send({
+        error: "Missing required query parameter: applicationId",
+      });
+    }
+
+    // Validate traceId
+    if (!traceId) {
+      app.log.error("Missing required query parameter: traceId", {
+        query: request.query,
+        endpoint: request.url,
+        method: request.method,
+      });
+      return reply.status(400).send({
+        error: "Missing required query parameter: traceId",
+      });
+    }
+
+    // Create abort controller for this connection
+    const abortController = new AbortController();
+
+    // Set up cleanup when client disconnects
+    request.socket.on("close", () => {
+      app.log.info(`Client disconnected for applicationId: ${applicationId}`);
+      abortController.abort();
+    });
+
+    // Set up SSE response
+    reply.sse(
+      (async function* () {
+        try {
+          // Create EventSource to read from agent's GET endpoint
+          const es = new EventSource(
+            `${MOCKED_AGENT_API_URL}/message?applicationId=${applicationId}&traceId=${traceId}`,
+          );
+
+          // Return a promise that resolves on each message or rejects on error
+          const messagePromise = () =>
+            new Promise<any>((resolve, reject) => {
+              const onMessage = (event: MessageEvent) => {
+                es.removeEventListener("message", onMessage);
+                es.removeEventListener("error", onError);
+                resolve(JSON.parse(event.data));
+              };
+
+              const onError = (error: Event) => {
+                es.removeEventListener("message", onMessage);
+                es.removeEventListener("error", onError);
+
+                if (error && typeof error === "object" && "status" in error) {
+                  console.error("SSE error with status:", error.status);
+                } else {
+                  console.error("Generic SSE error", {
+                    type: error?.type,
+                    raw: error,
+                  });
+                }
+
+                reject(error);
+              };
+
+              es.addEventListener("message", onMessage, { once: true });
+              es.addEventListener("error", onError, { once: true });
+            });
+
+          // Listen for abort signal to close EventSource
+          abortController.signal.addEventListener("abort", () => {
+            es.close();
+          });
+
+          // Process messages from the agent and forward them
+          while (!abortController.signal.aborted) {
+            try {
+              // Wait for next message from agent
+              const message = await messagePromise();
+
+              // Log and forward the message
+              app.log.info(
+                `Forwarding message from agent for applicationId: ${applicationId}, message: ${JSON.stringify(message)}`,
+              );
+
+              try {
+                // insert the new agent message
+                await db.insert(appPrompts).values({
+                  id: uuidv4(),
+                  prompt: JSON.stringify(message),
+                  appId: applicationId,
+                  kind: "agent",
+                });
+              } catch (error) {
+                app.log.error(`Error inserting agent message: ${error}`);
+                return reply.status(500).send({
+                  error: `Error inserting agent message: ${error}`,
+                });
+              }
+
+              // Yield the message to the client
+              yield {
+                data: JSON.stringify(message),
+              };
+
+              // If agent is done, close the connection
+              if (message.status === "idle") {
+                yield {
+                  event: "done",
+                  data: JSON.stringify({
+                    applicationId,
+                    status: "idle",
+                    message: "Agent is idle, closing connection",
+                  }),
+                };
+
+                // Optional: log + cleanup
+                app.log.info(
+                  `Closing SSE connection for applicationId: ${applicationId}`,
+                );
+
+                // End the generator, which closes the stream
+                es.close();
+                break;
+              }
+            } catch (error) {
+              // If aborted, just break
+              if (abortController.signal.aborted) break;
+
+              // Otherwise log and propagate the error
+              app.log.error(
+                `Error processing message from agent: ${JSON.stringify(error)}`,
+              );
+              throw error;
+            }
+          }
+        } catch (error) {
+          app.log.error(`Error in SSE stream: ${JSON.stringify(error)}`);
+
+          // Yield error message to client
+          yield {
+            data: JSON.stringify({
+              type: "message",
+              parts: [
+                {
+                  type: "text",
+                  content: `An error occurred while processing your request: ${error}`,
+                },
+              ],
+              applicationId,
+              status: "idle",
+              traceId: `error-${Date.now()}`,
+            }),
+          };
+        }
+      })(),
+    );
+  } catch (error) {
+    app.log.error(`Unhandled error: ${error}`);
+    reply.status(500).send({ error: "Internal server error" });
+  }
+});
 
 export const start = async () => {
   try {
