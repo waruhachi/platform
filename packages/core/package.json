@@ -1,0 +1,19 @@
+{
+  "name": "@appdotbuild/core",
+  "version": "0.0.1",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "scripts": {
+    "clean": "rm -rf node_modules",
+    "lint": "prettier --check .",
+    "lint:fix": "prettier --write .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "types:check": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "peerDependencies": {}
+}

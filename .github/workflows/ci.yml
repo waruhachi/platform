@@ -24,27 +24,19 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install Dependencies for Platform
-        working-directory: platform
-        run: bun install
-
-      - name: Install Dependencies for Mocked Agent
-        working-directory: platform/mocked-agent
+      - name: Install Dependencies
         run: bun install
 
       - name: Run Lint
-        working-directory: platform
         run: bun run lint
 
-      - name: Backend - Install Dependencies
-        working-directory: platform/apps/backend
-        run: bun install
+      - name: Run Types Check
+        run: bun run types:check
 
       - name: Install Fly CLI
         run: curl -L https://fly.io/install.sh | sh
 
       - name: Backend - Test
-        working-directory: platform
         env:
           FLY_IO_TOKEN: ${{ secrets.FLY_IO_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -59,4 +51,4 @@ jobs:
           DEPLOYED_BOT_PERPLEXITY_API_KEY: ${{ secrets.DEPLOYED_BOT_PERPLEXITY_API_KEY }}
           DEPLOYED_BOT_PICA_SECRET_KEY: ${{ secrets.DEPLOYED_BOT_PICA_SECRET_KEY }}
           NODE_ENV: test
-        run: bun test
+        run: bun --filter './apps/backend' test
