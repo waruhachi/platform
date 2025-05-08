@@ -4,14 +4,7 @@ import { config } from 'dotenv';
 import { FastifySSEPlugin } from 'fastify-sse-v2';
 import { app } from './app';
 import { commitChanges, createRepository, createInitialCommit } from './github';
-import {
-  appById,
-  listApps,
-  appByIdUrl,
-  generate,
-  postMessage,
-  getMessage,
-} from './apps';
+import { appById, listApps, appByIdUrl, postMessage } from './apps';
 import { logger } from './logger';
 import { deployTask } from './deploy';
 
@@ -40,9 +33,7 @@ app.get('/apps', authHandler, listApps);
 app.get('/apps/:id', authHandler, appById);
 app.get('/apps/:id/read-url', authHandler, appByIdUrl);
 
-app.post('/generate', authHandler, generate);
 app.post('/message', authHandler, postMessage);
-app.get('/message', authHandler, getMessage);
 
 export const start = async () => {
   try {
