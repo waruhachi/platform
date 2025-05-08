@@ -124,6 +124,7 @@ function buildFileTree(files: { [key: string]: string }): FileEntry[] {
   return root;
 }
 
+// In the past, we used to keep app code in S3.
 export async function getAppCode(appId: string) {
   try {
     const { readUrl } = await getAppReadUrl(appId);
