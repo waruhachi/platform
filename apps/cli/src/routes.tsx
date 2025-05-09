@@ -16,6 +16,7 @@ import { z, ZodObject, ZodType } from 'zod';
 import { useCallback, useMemo } from 'react';
 import { ShortcutHints } from './components/ui/shortcut-hints.js';
 import { AppBuildScreen } from './app/app-build-screen.js';
+import { AppLogoutScreen } from './app/app-logout-screen.js';
 
 export type RoutePath = RouterDefinition[number]['path'];
 type RouterDefinition = typeof ROUTES_DEFINITIONS;
@@ -75,6 +76,10 @@ const ROUTES_DEFINITIONS = [
   {
     path: '/apps/:appId' as const,
     element: <AppDetails />,
+  },
+  {
+    path: '/app/logout' as const,
+    element: <AppLogoutScreen />,
   },
 ] satisfies Array<RouteType>;
 
