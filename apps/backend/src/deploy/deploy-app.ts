@@ -70,7 +70,7 @@ export async function deployApp({
 
   logger.info('Starting Koyeb deployment', { koyebAppName });
   execSync(
-    `koyeb deploy ${DEFAULT_TEMPLATE_DOCKER_IMAGE} ${koyebAppName}/service --archive-builder docker --port 80:http --route /:80 ${envVarsString}`,
+    `koyeb app init ${koyebAppName} --region was --docker ${DEFAULT_TEMPLATE_DOCKER_IMAGE} --ports 80:http --routes /:80 ${envVarsString}`,
     { cwd: appDirectory, stdio: 'inherit' },
   );
   logger.info('Koyeb deployment completed', { koyebAppName });
