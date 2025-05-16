@@ -2,7 +2,7 @@ import { config } from 'dotenv';
 import chalk from 'chalk';
 import { apiClient } from './api-client.js';
 import { parseSSE } from './sse.js';
-import type { Message } from '../app/message/use-message.js';
+import { AgentSseEvent } from '@appdotbuild/core';
 import type { Readable } from 'stream';
 
 // Load environment variables from .env file
@@ -22,6 +22,9 @@ export type App = {
   receivedSuccess: boolean;
   recompileInProgress: boolean;
   clientSource: 'slack' | 'cli';
+  repositoryUrl?: string;
+  appName?: string;
+  appUrl?: string;
 };
 
 export type AppGenerationParams = {
@@ -76,7 +79,7 @@ export type SendMessageParams = {
   message: string;
   applicationId?: string;
   traceId?: string;
-  onMessage?: (data: Message) => void;
+  onMessage?: (data: AgentSseEvent) => void;
 };
 
 export type SendMessageResult = {
@@ -110,13 +113,10 @@ export async function sendMessage({
     throw new Error('No response data available');
   }
 
-  console.log(chalk.green('🔗 Connected to message stream.\n'));
-
   try {
     await parseSSE(response.data as Readable, {
-      onMessage: (message) => {
-        console.log('onMessageHandler');
-        onMessage?.(message as Message);
+      onMessage: (message: AgentSseEvent) => {
+        onMessage?.(message);
       },
       onError: (error) => {
         console.error('error', error);

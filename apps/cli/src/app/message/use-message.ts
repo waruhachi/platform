@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { sendMessage, type SendMessageParams } from '../../api/application.js';
 import { applicationQueryKeys } from '../use-application.js';
+import {
+  AgentStatus,
+  MessageKind,
+  type AgentSseEvent,
+  type MessageContentBlock,
+} from '@appdotbuild/core';
 
 export type ChoiceElement = {
   type: 'choice';
@@ -33,21 +39,13 @@ export type MessagePart =
       elements: (ChoiceElement | ActionElement)[];
     };
 
-type RequestId = string;
-type ApplicationId = string;
-type TraceId = `app-${ApplicationId}.req-${RequestId}`;
-type StringifiedMessagesArrayJson = string;
-export type Message = {
-  status: 'streaming' | 'idle';
+type ParsedSseEvent = Omit<AgentSseEvent, 'message'> & {
   message: {
-    role: 'assistant' | 'user';
-    kind: 'RefinementRequest' | 'StageResult' | 'TestResult' | 'UserMessage';
-    content: StringifiedMessagesArrayJson;
-    agentState: any;
-    unifiedDiff: any;
-  };
-  traceId: TraceId;
-  githubRepository?: string;
+    content: {
+      role: 'assistant' | 'user';
+      content: MessageContentBlock[];
+    }[];
+  } & Omit<AgentSseEvent['message'], 'content'>;
 };
 
 const queryKeys = {
@@ -69,8 +67,12 @@ const useSendMessage = () => {
         message,
         applicationId: metadata?.applicationId,
         traceId: metadata?.traceId,
-        onMessage: (newMessage) => {
-          const applicationId = extractApplicationId(newMessage.traceId);
+        onMessage: (newEvent) => {
+          if (!newEvent.traceId) {
+            throw new Error('Trace ID not found');
+          }
+
+          const applicationId = extractApplicationId(newEvent.traceId);
           if (!applicationId) {
             throw new Error('Application ID not found');
           }
@@ -78,36 +80,50 @@ const useSendMessage = () => {
           setMetadata({
             ...metadata,
             applicationId,
-            traceId: newMessage.traceId,
-            ...(newMessage.githubRepository && {
-              githubRepository: newMessage.githubRepository,
-            }),
+            traceId: newEvent.traceId,
           });
-
-          if (!newMessage.message) {
-            return;
-          }
 
           queryClient.setQueryData(
             queryKeys.applicationMessages(applicationId),
-            (oldData: any) => {
+            (oldData: {
+              events: ParsedSseEvent[];
+            }): { events: ParsedSseEvent[] } => {
+              const parsedEvent = {
+                ...newEvent,
+                message: {
+                  ...newEvent.message,
+                  content: JSON.parse(newEvent.message.content),
+                },
+              };
+
               // first message
               if (!oldData) {
-                return { messages: [newMessage] };
+                return { events: [parsedEvent] };
               }
 
-              // if the message is already in the thread, replace the whole thread
-              const existingMessageThread = oldData.messages.find(
-                (m: Message) => m.traceId === newMessage.traceId,
+              // if there is already an event with the same traceId, replace the whole thread
+              const existingSameTraceIdEventThread = oldData.events.some(
+                (e) => e.traceId === newEvent.traceId,
               );
-              if (existingMessageThread) {
-                return { ...oldData, messages: [newMessage] };
+
+              // platform events should always be the last message in the thread
+              if (
+                existingSameTraceIdEventThread &&
+                parsedEvent.message.kind !== MessageKind.PLATFORM_MESSAGE
+              ) {
+                const existingPlatformEvents = oldData.events.filter(
+                  (e) => e.message.kind === MessageKind.PLATFORM_MESSAGE,
+                );
+                return {
+                  ...oldData,
+                  events: [parsedEvent, ...existingPlatformEvents],
+                };
               }
 
               // add the new message to the thread
               return {
                 ...oldData,
-                messages: [...oldData.messages, newMessage],
+                events: [...oldData.events, parsedEvent],
               };
             },
           );
@@ -144,11 +160,11 @@ export const useBuildApp = (existingApplicationId?: string) => {
       // this should never happen due to `enabled`
       if (!appId) return null;
 
-      const messages = queryClient.getQueryData<{ messages: Message[] }>(
+      const events = queryClient.getQueryData<{ events: ParsedSseEvent[] }>(
         queryKeys.applicationMessages(appId),
       );
 
-      return messages ?? { messages: [] };
+      return events ?? { events: [] };
     },
     enabled: !!appId,
   });
@@ -163,7 +179,7 @@ export const useBuildApp = (existingApplicationId?: string) => {
 
     streamingMessagesData: messageQuery.data,
     isStreamingMessages:
-      messageQuery.data?.messages.at(-1)?.status === 'streaming',
+      messageQuery.data?.events.at(-1)?.status === AgentStatus.RUNNING,
   };
 };
 
