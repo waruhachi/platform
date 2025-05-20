@@ -1,7 +1,8 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { sendMessage, type SendMessageParams } from '../../api/application.js';
-import { applicationQueryKeys } from '../use-application.js';
+import { sendMessage, type SendMessageParams } from '../api/application.js';
+import { applicationQueryKeys } from './use-application.js';
+import { queryKeys } from './use-build-app.js';
 import {
   AgentStatus,
   MessageKind,
@@ -39,7 +40,7 @@ export type MessagePart =
       elements: (ChoiceElement | ActionElement)[];
     };
 
-type ParsedSseEvent = Omit<AgentSseEvent, 'message'> & {
+export type ParsedSseEvent = Omit<AgentSseEvent, 'message'> & {
   message: {
     content: {
       role: 'assistant' | 'user';
@@ -48,11 +49,7 @@ type ParsedSseEvent = Omit<AgentSseEvent, 'message'> & {
   } & Omit<AgentSseEvent['message'], 'content'>;
 };
 
-const queryKeys = {
-  applicationMessages: (id: string) => ['apps', id],
-};
-
-const useSendMessage = () => {
+export const useSendMessage = () => {
   const queryClient = useQueryClient();
 
   const [metadata, setMetadata] = useState<{
@@ -139,48 +136,6 @@ const useSendMessage = () => {
 
   // we need this to keep the previous application id
   return { ...result, data: metadata };
-};
-
-export const useBuildApp = (existingApplicationId?: string) => {
-  const queryClient = useQueryClient();
-  const {
-    mutate: sendMessage,
-    data: sendMessageData,
-    error: sendMessageError,
-    isPending: sendMessagePending,
-    isSuccess: sendMessageSuccess,
-    status: sendMessageStatus,
-  } = useSendMessage();
-
-  const appId = existingApplicationId ?? sendMessageData?.applicationId;
-
-  const messageQuery = useQuery({
-    queryKey: queryKeys.applicationMessages(appId!),
-    queryFn: () => {
-      // this should never happen due to `enabled`
-      if (!appId) return null;
-
-      const events = queryClient.getQueryData<{ events: ParsedSseEvent[] }>(
-        queryKeys.applicationMessages(appId),
-      );
-
-      return events ?? { events: [] };
-    },
-    enabled: !!appId,
-  });
-
-  return {
-    createApplication: sendMessage,
-    createApplicationData: sendMessageData,
-    createApplicationError: sendMessageError,
-    createApplicationPending: sendMessagePending,
-    createApplicationSuccess: sendMessageSuccess,
-    createApplicationStatus: sendMessageStatus,
-
-    streamingMessagesData: messageQuery.data,
-    isStreamingMessages:
-      messageQuery.data?.events.at(-1)?.status === AgentStatus.RUNNING,
-  };
 };
 
 function extractApplicationId(traceId: `app-${string}.req-${string}`) {

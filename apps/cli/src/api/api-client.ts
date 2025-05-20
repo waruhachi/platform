@@ -3,7 +3,7 @@ import axios, {
   type AxiosResponseHeaders,
   type RawAxiosResponseHeaders,
 } from 'axios';
-import { useMessageLimitStore } from '../app/message/use-message-limit.js';
+import { useMessageLimitStore } from '../hooks/use-message-limit.js';
 import { authenticate } from '../auth/auth.js';
 import { getBackendHost } from '../environment.js';
 

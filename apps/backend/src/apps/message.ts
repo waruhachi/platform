@@ -39,11 +39,12 @@ import { checkMessageUsageLimit } from './message-limit';
 
 interface AgentMessage {
   role: 'assistant';
-  content: string;
+  content: { source: MessageContentBlock[] };
   agentState?: any | null;
   unifiedDiff?: any | null;
   kind: MessageKind;
 }
+
 interface UserMessage {
   role: 'user';
   content: string;
@@ -576,50 +577,38 @@ function getExistingConversationBody({
   message: string;
   settings?: Record<string, any>;
 }) {
-  let agentState = previousEvent.message.agentState;
-  let messagesHistory = JSON.parse(previousEvent.message.content);
-
-  let messagesHistoryCasted: ContentMessage[] = [];
-  if (Array.isArray(messagesHistory)) {
-    try {
-      messagesHistoryCasted = messagesHistory.map((m) => {
-        const role = m.role ?? 'assistant';
-
-        // Extract only text content, skipping tool calls
-        const content = (m.content ?? [])
+  const messagesHistory = JSON.parse(previousEvent.message.content);
+  const messages = messagesHistory.map(
+    (content: {
+      role: 'user' | 'assistant';
+      content: MessageContentBlock[];
+    }) => {
+      const { role, content: messageContent } = content;
+      if (role === 'user') {
+        // For user messages, we need to extract the text content
+        const textContent = messageContent
           .filter((c) => c.type === 'text')
           .map((c) => c.text)
-          .join('') as Stringified<MessageContentBlock[]>;
-
-        if (role === 'user') {
-          return {
-            role,
-            content,
-          };
-        }
+          .join('');
         return {
-          role: 'assistant',
-          content,
-          agentState: undefined,
-          unifiedDiff: undefined,
-          kind: MessageKind.FINAL_RESULT,
-        };
-      });
-    } catch (error) {
-      app.log.error(`Error parsing message history: ${error}`);
-      messagesHistoryCasted = [];
-    }
-  }
+          role: 'user' as const,
+          content: textContent,
+        } as UserMessage;
+      }
+      return {
+        role: 'assistant' as const,
+        content: { source: messageContent },
+        agentState: undefined,
+        unifiedDiff: undefined,
+        kind: MessageKind.FINAL_RESULT,
+      } as AgentMessage;
+    },
+  );
 
-  // Create the request body
-  const body: Body = {
-    applicationId,
-    allMessages: [...messagesHistoryCasted, { role: 'user', content: message }],
+  return {
+    allMessages: [...messages, { role: 'user' as const, content: message }],
     traceId: existingTraceId,
+    applicationId,
     settings: settings || { 'max-iterations': 3 },
-    agentState,
   };
-
-  app.log.info('body', { body });
-  return body;
 }
