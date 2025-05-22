@@ -4,7 +4,6 @@ import { sendMessage, type SendMessageParams } from '../api/application.js';
 import { applicationQueryKeys } from './use-application.js';
 import { queryKeys } from './use-build-app.js';
 import {
-  AgentStatus,
   MessageKind,
   type AgentSseEvent,
   type MessageContentBlock,
@@ -140,7 +139,6 @@ export const useSendMessage = () => {
 
 function extractApplicationId(traceId: `app-${string}.req-${string}`) {
   const appPart = traceId.split('.')[0];
-
   const applicationId = appPart?.replace('app-', '');
 
   return applicationId;
