@@ -1,4 +1,5 @@
 import { Box, Text } from 'ink';
+import { LoadingMessage } from '../components/shared/display/loading-message.js';
 import { Select } from '../components/shared/input/select.js';
 import type { SelectItem } from '../components/shared/input/types.js';
 import { useListApps } from '../hooks/use-application.js';
@@ -55,13 +56,8 @@ export const AppsListScreen = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Box justifyContent="center" paddingY={1}>
-        <Text>⏳ Loading applications...</Text>
-      </Box>
-    );
-  }
+  if (isLoading)
+    return <LoadingMessage message={'⏳ Loading applications...'} />;
 
   if (error) {
     return (

@@ -1,8 +1,12 @@
 import { MessageKind } from '@appdotbuild/core';
 import { Box } from 'ink';
 import { useBuildApp } from '../../hooks/use-build-app.js';
-import { useUserMessageLimitCheck } from '../../hooks/use-message-limit.js';
+import {
+  useFetchMessageLimit,
+  useUserMessageLimitCheck,
+} from '../../hooks/use-message-limit.js';
 import { InteractivePrompt } from '../interactive-prompt.js';
+import { LoadingMessage } from '../shared/display/loading-message.js';
 import { BuildStages } from './build-stages.js';
 import { RefinementPrompt } from './refinement-prompt.js';
 
@@ -23,12 +27,17 @@ export function AppBuilder({ initialPrompt }: AppBuilderProps) {
   const { userMessageLimit, isUserReachedMessageLimit } =
     useUserMessageLimitCheck(createApplicationError);
 
+  const { isLoading } = useFetchMessageLimit();
+
   const handlerSubmitRefinement = (value: string) => {
     createApplication({
       message: value,
       applicationId: createApplicationData?.applicationId,
     });
   };
+
+  if (isLoading)
+    return <LoadingMessage message={'⏳ Preparing application...'} />;
 
   return (
     <Box flexDirection="column">
