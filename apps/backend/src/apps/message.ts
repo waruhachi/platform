@@ -65,6 +65,7 @@ type RequestBody = {
   message: string;
   applicationId?: string;
   clientSource: string;
+  environment?: 'staging' | 'production';
   settings?: Record<string, any>;
 };
 
@@ -224,17 +225,20 @@ export async function postMessage(
       body.allFiles = readDirectoryRecursive(virtualDir, virtualDir, volume);
     }
 
-    const agentResponse = await fetch(`${getAgentHost()}/message`, {
-      method: 'POST',
-      headers: {
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH}`,
-        Connection: 'keep-alive',
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
+    const agentResponse = await fetch(
+      `${getAgentHost(requestBody.environment)}/message`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'text/event-stream',
+          Authorization: `Bearer ${process.env.AGENT_API_SECRET_AUTH}`,
+          Connection: 'keep-alive',
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+    );
 
     if (!agentResponse.ok) {
       const errorData = await agentResponse.json();

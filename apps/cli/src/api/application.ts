@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { apiClient } from './api-client.js';
 import { parseSSE } from './sse.js';
 import type { AgentSseEvent } from '@appdotbuild/core';
+import { useEnvironmentStore } from '../store/environment-store.js';
 
 // Load environment variables from .env file
 config();
@@ -92,6 +93,8 @@ export async function sendMessage({
   traceId,
   onMessage,
 }: SendMessageParams): Promise<SendMessageResult> {
+  const environment = useEnvironmentStore.getState().environment;
+
   const response = await apiClient.post(
     '/message',
     {
@@ -99,6 +102,7 @@ export async function sendMessage({
       clientSource: 'cli',
       applicationId,
       traceId,
+      environment,
     },
     {
       headers: {
