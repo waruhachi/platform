@@ -35,6 +35,20 @@ function dockerLogin({
   });
 }
 
+async function koyebUpdateECRSecret({
+  username,
+  password,
+  registryUrl,
+}: {
+  username: string;
+  password: string;
+  registryUrl: string;
+}) {
+  return exec(
+    `koyeb secrets update ecr-creds --registry-url "${registryUrl}" --registry-username "${username}" --value "${password}" --token ${process.env.KOYEB_CLI_TOKEN}`,
+  );
+}
+
 async function dockerLoginIfNeeded() {
   if (fs.existsSync('/root/.docker/config.json')) {
     logger.info('Docker config already exists, no login needed');
@@ -42,7 +56,10 @@ async function dockerLoginIfNeeded() {
   }
 
   return getECRCredentials().then(({ username, password, registryUrl }) => {
-    return dockerLogin({ username, password, registryUrl });
+    return Promise.all([
+      dockerLogin({ username, password, registryUrl }),
+      koyebUpdateECRSecret({ username, password, registryUrl }),
+    ]);
   });
 }
 
