@@ -21,7 +21,7 @@ jobs:
         run: |
           koyeb deploy . platform-${{ github.ref_name }}/main \
             --instance-type medium \
-            --region was \
+            --region fra \
             --archive-builder docker \
             --archive-docker-dockerfile ./apps/backend/Dockerfile.backend \
             --privileged \
