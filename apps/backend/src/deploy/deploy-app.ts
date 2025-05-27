@@ -34,7 +34,7 @@ function dockerLogin({
     child.stdin.write(password);
     child.stdin.end();
     child.stdout.on('data', (data) => {
-      logger.log(data.toString());
+      logger.info(data.toString());
     });
 
     child.stderr.on('data', (data) => {
