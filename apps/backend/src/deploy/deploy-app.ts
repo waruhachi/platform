@@ -58,7 +58,7 @@ async function dockerLoginIfNeeded() {
     return Promise.all([
       dockerLogin({ username, password, registryUrl }),
       exec(
-        `koyeb secrets create ecr-creds --type registry-private --registry-url ${registryUrl} --registry-username ${username} --registry-password ${password} --token ${process.env.KOYEB_CLI_TOKEN}`,
+        `koyeb secrets create ecr-creds --type registry-private --registry-url ${registryUrl} --registry-username ${username} --value ${password} --token ${process.env.KOYEB_CLI_TOKEN}`,
       ),
     ]);
   });
