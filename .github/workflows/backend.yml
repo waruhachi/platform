@@ -23,7 +23,7 @@ jobs:
             --instance-type medium \
             --region fra \
             --archive-builder docker \
-            --archive-docker-dockerfile ./apps/backend/Dockerfile.backend \
+            --archive-docker-dockerfile apps/backend/Dockerfile.backend \
             --privileged \
             --type web \
             --port 4444:http \
