@@ -20,11 +20,15 @@ const getPhaseTitle = (phase: MessageKind) => {
     case MessageKind.RUNTIME_ERROR:
       return 'Creating event handlers';
     case MessageKind.REFINEMENT_REQUEST:
-      return 'Running tests';
+      return 'Refining your request';
     case MessageKind.FINAL_RESULT:
       return 'Building frontend components';
     case MessageKind.PLATFORM_MESSAGE:
       return 'Platform message';
+    case MessageKind.USER_MESSAGE:
+      return 'User message';
+    case MessageKind.REVIEW_RESULT:
+      return 'Generating application';
     default:
       return phase;
   }
@@ -62,12 +66,37 @@ const extractPhaseMessages = (
   isLastInteractiveGroup: boolean,
 ): TaskDetail[] => {
   return events.flatMap((event) => {
-    return event.message.content
+    let messagesToProcess = event.message.content;
+
+    // filter only messages for the current streaming phase and avoid showing historical context
+    if (event.message.kind !== MessageKind.REVIEW_RESULT && isCurrentPhase) {
+      if (
+        event.message.role === 'assistant' &&
+        event.message.content.length > 0
+      ) {
+        let lastUserMessageIndex = -1;
+        for (let i = event.message.content.length - 1; i >= 0; i--) {
+          const message = event.message.content[i];
+          if (message && message.role === 'user') {
+            lastUserMessageIndex = i;
+            break;
+          }
+        }
+
+        if (lastUserMessageIndex !== -1) {
+          messagesToProcess = event.message.content.slice(
+            lastUserMessageIndex + 1,
+          );
+        }
+      }
+    }
+
+    return messagesToProcess
       .map((item, index) =>
         createTaskDetail(
           item,
           index,
-          event.message.content.length,
+          messagesToProcess.length,
           isCurrentPhase,
           isLastInteractiveGroup,
         ),

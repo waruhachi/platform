@@ -35,6 +35,21 @@ export type ReadUrl = {
   readUrl: string;
 };
 
+export enum PromptKind {
+  USER = 'user',
+  AGENT = 'assistant',
+}
+
+export type AppPrompts = {
+  id: string;
+  appId: string;
+  prompt: string;
+  response: string;
+  kind: PromptKind;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type App = {
   id: string;
   name: string;
@@ -49,5 +64,7 @@ export type App = {
   receivedSuccess: boolean;
   recompileInProgress: boolean;
   clientSource: string;
-  repositoryUrl: string | null;
+  repositoryUrl?: string | null;
+  appName?: string | null;
+  appUrl?: string | null;
 };

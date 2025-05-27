@@ -3,21 +3,22 @@ import { config } from 'dotenv';
 import { app } from './app';
 import {
   appById,
-  listApps,
   appByIdUrl,
-  postMessage,
   getUserMessageLimit,
+  listApps,
+  postMessage,
 } from './apps';
-import { logger } from './logger';
-import {
-  createOrgRepositoryEndpoint,
-  createUserRepositoryEndpoint,
-  createUserInitialCommitEndpoint,
-  createOrgInitialCommitEndpoint,
-  userCommitChangesEndpoint,
-  orgCommitChangesEndpoint,
-} from './github';
+import { appHistory } from './apps/app-history';
 import { isDev, validateEnv } from './env';
+import {
+  createOrgInitialCommitEndpoint,
+  createOrgRepositoryEndpoint,
+  createUserInitialCommitEndpoint,
+  createUserRepositoryEndpoint,
+  orgCommitChangesEndpoint,
+  userCommitChangesEndpoint,
+} from './github';
+import { logger } from './logger';
 
 config({ path: '.env' });
 validateEnv();
@@ -50,6 +51,7 @@ if (isDev) {
 
 app.get('/apps', authHandler, listApps);
 app.get('/apps/:id', authHandler, appById);
+app.get('/apps/:id/history', authHandler, appHistory);
 app.get('/apps/:id/read-url', authHandler, appByIdUrl);
 
 app.post('/message', authHandler, postMessage);

@@ -1,7 +1,7 @@
-import { type FastifyRequest, type FastifyReply } from 'fastify';
-import { eq, getTableColumns, and } from 'drizzle-orm';
 import type { App } from '@appdotbuild/core/types/api';
-import { db, apps } from '../db';
+import { and, eq, getTableColumns } from 'drizzle-orm';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { apps, db } from '../db';
 
 export async function appById(
   request: FastifyRequest,
@@ -10,6 +10,7 @@ export async function appById(
   const user = request.user;
   const { id } = request.params as { id: string };
   const { ...columns } = getTableColumns(apps);
+
   const app = await db
     .select({
       ...columns,
@@ -17,6 +18,13 @@ export async function appById(
     })
     .from(apps)
     .where(and(eq(apps.id, id), eq(apps.ownerId, user.id)));
+
+  if (!app || !app.length) {
+    return reply.status(404).send({
+      error: 'App not found',
+    });
+  }
+
   if (!app || !app.length) {
     return reply.status(404).send({
       error: 'App not found',
