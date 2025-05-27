@@ -45,7 +45,12 @@ async function koyebUpdateECRSecret({
   registryUrl: string;
 }) {
   return exec(
-    `koyeb secrets update ecr-creds --registry-url "${registryUrl}" --registry-username "${username}" --value "${password}" --token ${process.env.KOYEB_CLI_TOKEN}`,
+    `koyeb secrets update ecr-creds --registry-url "${registryUrl.replace(
+      'https://',
+      '',
+    )}" --registry-username "${username}" --value "${password}" --token ${
+      process.env.KOYEB_CLI_TOKEN
+    }`,
   );
 }
 
