@@ -13,6 +13,7 @@ import {
   StreamingError,
   type TraceId,
   type UserContentMessage,
+  type ApplicationId,
 } from '@appdotbuild/core';
 import type { Optional } from '@appdotbuild/core';
 import { type Session, createSession } from 'better-sse';
@@ -60,42 +61,36 @@ type RequestBody = {
   traceId?: TraceId;
 };
 
-const previousRequestMap = new Map<TraceId, AgentSseEvent>();
 const logsFolder = path.join(__dirname, '..', '..', 'logs');
 
-const TEMPORARY_APPLICATION_ID = 'temp';
-const PERMANENT_APPLICATION_ID = 'app';
-
-const generateTemporaryTraceId = (
-  request: FastifyRequest,
+const previousRequestMap = new Map<ApplicationId, AgentSseEvent | null>();
+const isTemporaryApp = (applicationId: string) => {
+  return Boolean(previousRequestMap.get(applicationId));
+};
+const isPermanentApp = (applicationId: string) => {
+  return !isTemporaryApp(applicationId);
+};
+const cleanupTemporaryApp = (applicationId: string) => {
+  // we don't delete, so we can keep track of the app being temporary
+  previousRequestMap.set(applicationId, null);
+};
+const addPreviousRequestToMap = (
   applicationId: string,
-): TraceId => `${TEMPORARY_APPLICATION_ID}-${applicationId}.req-${request.id}`;
-const updateToPermanentTraceId = (traceId: TraceId) =>
-  traceId.replace(
-    TEMPORARY_APPLICATION_ID,
-    PERMANENT_APPLICATION_ID,
-  ) as TraceId;
-const downgradeToTemporaryTraceId = (traceId: TraceId) =>
-  traceId.replace(
-    PERMANENT_APPLICATION_ID,
-    TEMPORARY_APPLICATION_ID,
-  ) as TraceId;
-
-function storePreviousRequest(traceId: TraceId, agentMessage: AgentSseEvent) {
-  const isPermanentTraceId = traceId.startsWith(PERMANENT_APPLICATION_ID);
-  if (isPermanentTraceId) {
-    const correspondingTemporaryTraceId = downgradeToTemporaryTraceId(traceId);
-    const correspondingTemporaryRequest = previousRequestMap.get(
-      correspondingTemporaryTraceId,
-    );
-    // replace the temporary traceId with the permanent traceId in the map
-    if (correspondingTemporaryRequest) {
-      previousRequestMap.delete(correspondingTemporaryTraceId);
-    }
+  event: AgentSseEvent,
+) => {
+  const previousEvent = previousRequestMap.get(applicationId);
+  // this means that this app has been removed from the map, so we don't need to add it again
+  if (previousEvent === null) {
+    return;
   }
 
-  previousRequestMap.set(traceId, agentMessage);
-}
+  previousRequestMap.set(applicationId, event);
+};
+
+const generateTraceId = (
+  request: FastifyRequest,
+  applicationId: string,
+): TraceId => `app-${applicationId}.req-${request.id}`;
 
 export async function postMessage(
   request: FastifyRequest,
@@ -170,17 +165,12 @@ export async function postMessage(
       ],
       settings: requestBody.settings || { 'max-iterations': 3 },
     };
-    let isIteration =
-      !!applicationId && traceId?.startsWith(PERMANENT_APPLICATION_ID);
 
     let appName = null;
     if (applicationId) {
       app.log.info(`existing applicationId ${applicationId}`);
 
-      const hasPreviousRequest =
-        traceId && previousRequestMap.has(traceId as TraceId);
-
-      if (isIteration || !hasPreviousRequest) {
+      if (isPermanentApp(applicationId)) {
         const application = await db
           .select()
           .from(apps)
@@ -195,8 +185,6 @@ export async function postMessage(
         }
 
         appName = application[0]!.appName;
-        isIteration = true;
-
         // save iteration user message
         try {
           await db.insert(appPrompts).values({
@@ -208,11 +196,37 @@ export async function postMessage(
         } catch (error) {
           app.log.error(`Error saving iteration user message: ${error}`);
         }
-      }
 
-      if (hasPreviousRequest) {
-        const previousRequest = previousRequestMap.get(traceId as TraceId);
+        const messagesFromHistory = await getMessagesFromHistory(
+          applicationId,
+          userId,
+        );
+
+        body = {
+          ...body,
+          applicationId,
+          traceId,
+          agentState: application[0]!.agentState,
+          allMessages: [
+            ...messagesFromHistory,
+            {
+              role: 'user' as const,
+              content: requestBody.message as Stringified<
+                MessageContentBlock[]
+              >,
+            },
+          ],
+        };
+
+        streamLog(
+          session,
+          `Loaded ${messagesFromHistory.length} messages from history for application ${applicationId}`,
+        );
+      } else {
+        // for temporary apps, we need to get the previous request from the memory
+        const previousRequest = previousRequestMap.get(applicationId);
         if (!previousRequest) {
+          streamLog(session, 'previous request not found', 'error');
           return reply.status(404).send({
             error: 'Previous request not found',
             status: 'error',
@@ -229,38 +243,10 @@ export async function postMessage(
             settings: requestBody.settings,
           }),
         };
-      } else {
-        traceId =
-          `${PERMANENT_APPLICATION_ID}-${applicationId}.req-${request.id}` as TraceId;
-
-        const messagesFromHistory = await getMessagesFromHistory(
-          applicationId,
-          traceId,
-          userId,
-        );
-
-        body = {
-          ...body,
-          applicationId,
-          traceId,
-          allMessages: [
-            ...messagesFromHistory,
-            {
-              role: 'user' as const,
-              content: requestBody.message as Stringified<
-                MessageContentBlock[]
-              >,
-            },
-          ],
-        };
-
-        app.log.info(
-          `Loaded ${messagesFromHistory.length} messages from history for application ${applicationId}`,
-        );
       }
     } else {
       applicationId = uuidv4();
-      traceId = generateTemporaryTraceId(request, applicationId);
+      traceId = generateTraceId(request, applicationId);
       body = {
         ...body,
         applicationId,
@@ -273,7 +259,7 @@ export async function postMessage(
       `appdotbuild-template-${Date.now()}`,
     );
 
-    const volumePromise = isIteration
+    const volumePromise = isPermanentApp(applicationId)
       ? cloneRepository({
           repo: `${githubUsername}/${appName}`,
           githubAccessToken,
@@ -283,11 +269,17 @@ export async function postMessage(
 
     // We are iterating over an existing app, so we wait for the promise here to read the files that where cloned.
     // and we add them to the body for the agent to use.
-    if (isIteration) {
+    if (isPermanentApp(applicationId)) {
       const { volume, virtualDir } = await volumePromise;
       body.allFiles = readDirectoryRecursive(virtualDir, virtualDir, volume);
     }
 
+    if (isDev) {
+      fs.writeFileSync(
+        `${logsFolder}/${applicationId}-body.json`,
+        JSON.stringify(JSON.stringify(body), null, 2),
+      );
+    }
     const agentResponse = await fetch(
       `${getAgentHost(requestBody.environment)}/message`,
       {
@@ -302,6 +294,12 @@ export async function postMessage(
         body: JSON.stringify(body),
       },
     );
+    if (isDev) {
+      fs.writeFileSync(
+        `${logsFolder}/${applicationId}-agent-response.json`,
+        JSON.stringify(JSON.stringify(agentResponse), null, 2),
+      );
+    }
 
     if (!agentResponse.ok) {
       const errorData = await agentResponse.json();
@@ -329,7 +327,6 @@ export async function postMessage(
 
     let buffer = '';
     let canDeploy = false;
-    let isAppCreated = isIteration;
     const textDecoder = new TextDecoder();
 
     while (!abortController.signal.aborted) {
@@ -343,7 +340,10 @@ export async function postMessage(
       const text = textDecoder.decode(value, { stream: true });
 
       if (isDev) {
-        fs.writeFileSync(`${logsFolder}/sse_messages-${Date.now()}.log`, text);
+        fs.appendFileSync(
+          `${logsFolder}/sse_messages-${applicationId}.log`,
+          text,
+        );
       }
 
       buffer += text;
@@ -368,22 +368,26 @@ export async function postMessage(
 
             streamLog(session, `message sent to CLI: ${message}`, 'info');
             storeDevLogs(parsedMessage, message);
-            storePreviousRequest(parsedMessage.traceId, parsedMessage);
+            addPreviousRequestToMap(applicationId, parsedMessage);
             session.push(message);
-
-            if (parsedMessage.status === 'idle') {
-              await saveAgentMessage(
-                parsedMessage,
-                applicationId,
-                isAppCreated,
-              );
-            }
-
             if (
               parsedMessage.message.unifiedDiff ===
               '# Note: This is a valid empty diff (means no changes from template)'
             ) {
               parsedMessage.message.unifiedDiff = null;
+            }
+
+            if (
+              parsedMessage.message.unifiedDiff?.startsWith(
+                '# ERROR GENERATING DIFF',
+              )
+            ) {
+              terminateStreamWithError(
+                session,
+                'There was an error generating your application diff, try again with a different prompt.',
+                abortController,
+              );
+              return;
             }
 
             canDeploy = !!parsedMessage.message.unifiedDiff;
@@ -418,38 +422,42 @@ export async function postMessage(
                 );
               }
 
-              if (isIteration) {
+              if (isPermanentApp(applicationId)) {
+                streamLog(session, `app iteration: ${applicationId}`, 'info');
                 await appIteration({
                   appName,
                   githubUsername,
                   githubAccessToken,
                   files,
+                  agentState: parsedMessage.message.agentState,
+                  applicationId,
                   traceId: traceId as TraceId,
                   session,
                   commitMessage:
                     parsedMessage.message.commit_message || 'feat: update',
                 });
               } else {
+                streamLog(
+                  session,
+                  `creating new app: ${applicationId}`,
+                  'info',
+                );
                 appName =
                   parsedMessage.message.app_name ||
-                  `appdotbuild-${uuidv4().slice(0, 4)}`;
-
-                traceId = updateToPermanentTraceId(traceId as TraceId);
+                  `app.build-${uuidv4().slice(0, 4)}`;
                 const { newAppName } = await appCreation({
                   applicationId,
                   appName,
+                  agentState: parsedMessage.message.agentState,
                   githubAccessToken,
                   githubUsername,
                   ownerId: request.user.id,
-                  traceId,
+                  traceId: traceId as TraceId,
                   session,
                   requestBody,
                   files,
                 });
-
                 appName = newAppName;
-                isIteration = true;
-                isAppCreated = true;
               }
 
               const [, { appURL }] = await Promise.all([
@@ -470,6 +478,21 @@ export async function postMessage(
                   `Your application has been deployed to ${appURL}`,
                 ),
               );
+            }
+
+            if (parsedMessage.status === AgentStatus.IDLE) {
+              streamLog(
+                session,
+                `before saving agent message, isPermanentApp: ${isPermanentApp(
+                  applicationId,
+                )}`,
+                'info',
+              );
+              if (isPermanentApp(applicationId)) {
+                await saveAgentMessage(parsedMessage, applicationId);
+              }
+              abortController.abort();
+              break;
             }
           }
         } catch (error) {
@@ -530,6 +553,7 @@ async function appCreation({
   applicationId,
   appName,
   traceId,
+  agentState,
   githubUsername,
   githubAccessToken,
   ownerId,
@@ -540,6 +564,7 @@ async function appCreation({
   applicationId: string;
   appName: string;
   traceId: TraceId;
+  agentState: AgentSseEvent['message']['agentState'];
   githubUsername: string;
   githubAccessToken: string;
   ownerId: string;
@@ -572,10 +597,13 @@ async function appCreation({
     clientSource: requestBody.clientSource,
     ownerId,
     traceId,
+    agentState,
     repositoryUrl,
     appName: newAppName,
     githubUsername,
   });
+  cleanupTemporaryApp(applicationId);
+  streamLog(session, `app created: ${applicationId}`, 'info');
 
   // save first message after app creation
   try {
@@ -605,6 +633,8 @@ async function appIteration({
   githubUsername,
   githubAccessToken,
   files,
+  agentState,
+  applicationId,
   traceId,
   session,
   commitMessage,
@@ -613,8 +643,10 @@ async function appIteration({
   githubUsername: string;
   githubAccessToken: string;
   files: ReturnType<typeof readDirectoryRecursive>;
+  applicationId: string;
   traceId: string;
   session: Session;
+  agentState: AgentSseEvent['message']['agentState'];
   commitMessage: string;
 }) {
   const { commitSha } = await createUserCommit({
@@ -625,6 +657,13 @@ async function appIteration({
     branch: 'main',
     githubAccessToken,
   });
+
+  await db
+    .update(apps)
+    .set({
+      agentState: agentState,
+    })
+    .where(eq(apps.id, applicationId));
 
   const commitUrl = `https://github.com/${githubUsername}/${appName}/commit/${commitSha}`;
   session.push(
@@ -722,6 +761,7 @@ function getExistingConversationBody({
         content: message as Stringified<MessageContentBlock[]>,
       },
     ],
+    agentState: previousEvent.message.agentState,
     traceId: existingTraceId,
     applicationId,
     settings: settings || { 'max-iterations': 3 },
@@ -739,14 +779,11 @@ function streamLog(
 
 async function getMessagesFromHistory(
   applicationId: string,
-  traceId: TraceId,
   userId: string,
 ): Promise<ContentMessage[]> {
-  const isTemporaryTraceId = traceId.startsWith(TEMPORARY_APPLICATION_ID);
-
-  if (isTemporaryTraceId) {
+  if (isTemporaryApp(applicationId)) {
     // for temp apps, first check in-memory
-    const memoryMessages = getMessagesFromMemory(traceId);
+    const memoryMessages = getMessagesFromMemory(applicationId);
     if (memoryMessages.length > 0) {
       return memoryMessages;
     }
@@ -758,8 +795,8 @@ async function getMessagesFromHistory(
   return await getMessagesFromDB(applicationId, userId);
 }
 
-function getMessagesFromMemory(traceId: TraceId): ContentMessage[] {
-  const previousRequest = previousRequestMap.get(traceId);
+function getMessagesFromMemory(applicationId: ApplicationId): ContentMessage[] {
+  const previousRequest = previousRequestMap.get(applicationId);
   if (!previousRequest) {
     return [];
   }
@@ -823,34 +860,43 @@ async function getMessagesFromDB(
 async function saveAgentMessage(
   parsedMessage: AgentSseEvent,
   applicationId: string,
-  isAppCreated?: boolean,
 ) {
-  if (!isAppCreated) {
-    return;
-  }
-
   try {
     const messagesHistory = JSON.parse(parsedMessage.message.content);
 
-    const lastAssistantMessage = messagesHistory
-      .filter((msg) => msg.role === 'assistant')
-      .pop();
+    const assistantMessages = messagesHistory.filter(
+      (msg) => msg.role === 'assistant',
+    );
 
-    if (!lastAssistantMessage) {
+    if (assistantMessages.length === 0) {
       return;
     }
 
-    for (const contentBlock of lastAssistantMessage.content) {
-      if (contentBlock.type === 'text') {
-        await db.insert(appPrompts).values({
-          id: uuidv4(),
-          prompt: contentBlock.text,
-          appId: applicationId,
-          kind: 'agent',
+    for (const assistantMessage of assistantMessages) {
+      const appPromptsToStore = assistantMessage.content
+        .filter((block) => block.type === 'text')
+        .map((block) => {
+          return {
+            id: uuidv4(),
+            prompt: block.text,
+            appId: applicationId,
+            kind: 'agent',
+          };
         });
-      }
+
+      await db.insert(appPrompts).values(appPromptsToStore);
     }
   } catch (error) {
     app.log.error(`Error saving agent message: ${error}`);
   }
+}
+
+function terminateStreamWithError(
+  session: Session,
+  error: string,
+  abortController: AbortController,
+) {
+  session.push(new StreamingError(error), 'error');
+  abortController.abort();
+  session.removeAllListeners();
 }
