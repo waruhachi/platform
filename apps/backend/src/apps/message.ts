@@ -308,6 +308,14 @@ export async function postMessage(
         JSON.stringify(JSON.stringify(body), null, 2),
       );
     }
+
+    streamLog(
+      session,
+      `sending request to ${getAgentHost(
+        requestBody.environment,
+      )} agent, body: ${JSON.stringify(body)}`,
+      'info',
+    );
     const agentResponse = await fetch(
       `${getAgentHost(requestBody.environment)}/message`,
       {
