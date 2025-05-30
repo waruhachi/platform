@@ -104,6 +104,7 @@ export async function postMessage(
   reply: FastifyReply,
 ) {
   const userId = request.user.id;
+  const isNeonEmployee = request.user.isNeonEmployee;
 
   const {
     isUserLimitReached,
@@ -133,6 +134,7 @@ export async function postMessage(
     },
   });
 
+  const streamLog = createStreamLogger(session, isNeonEmployee);
   const abortController = new AbortController();
   const githubUsername = request.user.githubUsername;
   const githubAccessToken = request.user.githubAccessToken;
@@ -141,24 +143,18 @@ export async function postMessage(
   let traceId = requestBody.traceId;
 
   request.socket.on('close', () => {
-    streamLog(
-      session,
-      `Client disconnected for applicationId: ${applicationId}`,
-      'info',
-    );
+    streamLog(`Client disconnected for applicationId: ${applicationId}`);
     abortController.abort();
   });
 
-  streamLog(session, 'created SSE session', 'info');
+  streamLog('created SSE session');
 
   if (isDev) {
     fs.mkdirSync(logsFolder, { recursive: true });
   }
 
   streamLog(
-    session,
     `Received message request: ${JSON.stringify({ body: request.body })}`,
-    'info',
   );
 
   try {
@@ -185,7 +181,7 @@ export async function postMessage(
           .where(and(eq(apps.id, applicationId), eq(apps.ownerId, userId)));
 
         if (application.length === 0) {
-          streamLog(session, 'application not found', 'error');
+          streamLog('application not found', 'error');
           return reply.status(404).send({
             error: 'Application not found',
             status: 'error',
@@ -193,7 +189,6 @@ export async function postMessage(
         }
 
         streamLog(
-          session,
           `application found: ${JSON.stringify(application[0])}`,
           'info',
         );
@@ -232,14 +227,13 @@ export async function postMessage(
         };
 
         streamLog(
-          session,
           `Loaded ${messagesFromHistory.length} messages from history for application ${applicationId}`,
         );
       } else {
         // for temporary apps, we need to get the previous request from the memory
         const previousRequest = previousRequestMap.get(applicationId);
         if (!previousRequest) {
-          streamLog(session, 'previous request not found', 'error');
+          streamLog('previous request not found', 'error');
           return reply.status(404).send({
             error: 'Previous request not found',
             status: 'error',
@@ -272,11 +266,7 @@ export async function postMessage(
       `appdotbuild-template-${Date.now()}`,
     );
 
-    streamLog(
-      session,
-      `isPermanentApp ${isPermanentApp}, appName ${appName}`,
-      'info',
-    );
+    streamLog(`isPermanentApp ${isPermanentApp}, appName ${appName}`, 'info');
     const volumePromise = isPermanentApp
       ? cloneRepository({
           repo: `${githubUsername}/${appName}`,
@@ -285,7 +275,7 @@ export async function postMessage(
         })
           .then(copyDirToMemfs)
           .catch((error) => {
-            streamLog(session, `Error cloning repository: ${error}`, 'error');
+            streamLog(`Error cloning repository: ${error}`, 'error');
             terminateStreamWithError(
               session,
               'There was an error cloning your repository, try again with a different prompt.',
@@ -310,7 +300,6 @@ export async function postMessage(
     }
 
     streamLog(
-      session,
       `sending request to ${getAgentHost(
         requestBody.environment,
       )} agent, body: ${JSON.stringify(body)}`,
@@ -340,7 +329,6 @@ export async function postMessage(
     if (!agentResponse.ok) {
       const errorData = await agentResponse.json();
       streamLog(
-        session,
         `Agent returned error: ${
           agentResponse.status
         }, errorData: ${JSON.stringify(errorData)}`,
@@ -366,7 +354,7 @@ export async function postMessage(
     const textDecoder = new TextDecoder();
 
     while (!abortController.signal.aborted) {
-      streamLog(session, 'reading the stream', 'info');
+      streamLog('reading the stream');
 
       const { done, value } = await reader.read();
 
@@ -398,11 +386,11 @@ export async function postMessage(
             );
 
             if (parsedMessage.message.kind === 'KeepAlive') {
-              streamLog(session, 'keep alive message received', 'info');
+              streamLog('keep alive message received');
               continue;
             }
 
-            streamLog(session, `message sent to CLI: ${message}`, 'info');
+            streamLog(`message sent to CLI: ${message}`);
             storeDevLogs(parsedMessage, message);
             addPreviousRequestToMap(applicationId, parsedMessage);
             session.push(message);
@@ -430,7 +418,6 @@ export async function postMessage(
 
             if (canDeploy) {
               streamLog(
-                session,
                 `[appId: ${applicationId}] starting to deploy app`,
                 'info',
               );
@@ -441,7 +428,6 @@ export async function postMessage(
               );
 
               streamLog(
-                session,
                 `[appId: ${applicationId}] writing unified diff to file, virtualDir: ${unifiedDiffPath}, parsedMessage.message.unifiedDiff: ${parsedMessage.message.unifiedDiff}`,
                 'info',
               );
@@ -468,7 +454,7 @@ export async function postMessage(
               }
 
               if (isPermanentApp) {
-                streamLog(session, `app iteration: ${applicationId}`, 'info');
+                streamLog(`app iteration: ${applicationId}`, 'info');
                 await appIteration({
                   appName,
                   githubUsername,
@@ -482,11 +468,7 @@ export async function postMessage(
                     parsedMessage.message.commit_message || 'feat: update',
                 });
               } else {
-                streamLog(
-                  session,
-                  `creating new app: ${applicationId}`,
-                  'info',
-                );
+                streamLog(`creating new app: ${applicationId}`, 'info');
                 appName =
                   parsedMessage.message.app_name ||
                   `app.build-${uuidv4().slice(0, 4)}`;
@@ -501,6 +483,7 @@ export async function postMessage(
                   session,
                   requestBody,
                   files,
+                  streamLog,
                 });
                 appName = newAppName;
                 isPermanentApp = true;
@@ -531,7 +514,6 @@ export async function postMessage(
               parsedMessage.kind !== MessageKind.REFINEMENT_REQUEST;
             if (canBreakStream) {
               streamLog(
-                session,
                 `before saving agent message, isPermanentApp: ${isPermanentApp}`,
                 'info',
               );
@@ -548,22 +530,22 @@ export async function postMessage(
             error instanceof Error &&
             error.message.includes('Unterminated string')
           ) {
-            streamLog(session, 'Incomplete message', 'info');
+            streamLog('Incomplete message');
             continue;
           }
 
-          streamLog(session, `Error handling SSE message: ${error}`, 'error');
+          streamLog(`Error handling SSE message: ${error}`, 'error');
         }
       }
     }
 
-    streamLog(session, 'stream finished', 'info');
+    streamLog('stream finished');
     session.push({ done: true, traceId: traceId }, 'done');
     session.removeAllListeners();
 
     reply.raw.end();
   } catch (error) {
-    streamLog(session, `Unhandled error: ${error}`, 'error');
+    streamLog(`Unhandled error: ${error}`, 'error');
     session.push(
       new StreamingError((error as Error).message ?? 'Unknown error'),
       'error',
@@ -607,6 +589,7 @@ async function appCreation({
   session,
   requestBody,
   files,
+  streamLog,
 }: {
   applicationId: string;
   appName: string;
@@ -618,6 +601,7 @@ async function appCreation({
   session: Session;
   requestBody: RequestBody;
   files: ReturnType<typeof readDirectoryRecursive>;
+  streamLog: (log: string, level?: 'info' | 'error') => void;
 }) {
   if (isDev) {
     fs.writeFileSync(
@@ -650,7 +634,7 @@ async function appCreation({
     githubUsername,
   });
   cleanupTemporaryApp(applicationId);
-  streamLog(session, `app created: ${applicationId}`, 'info');
+  streamLog(`app created: ${applicationId}`, 'info');
 
   // save first message after app creation
   try {
@@ -815,13 +799,15 @@ function getExistingConversationBody({
   };
 }
 
-function streamLog(
-  session: Session,
-  log: string,
-  level: 'info' | 'error' = 'info',
-) {
-  app.log[level](log);
-  session.push({ log, level }, 'debug');
+function createStreamLogger(session: Session, isNeonEmployee: boolean) {
+  return function streamLog(log: string, level: 'info' | 'error' = 'info') {
+    app.log[level](log);
+
+    // only push if is neon employee
+    if (isNeonEmployee) {
+      session.push({ log, level }, 'debug');
+    }
+  };
 }
 
 async function getMessagesFromHistory(
