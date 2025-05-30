@@ -259,7 +259,7 @@ export async function getKoyebDomain({
 
 function getDomainName(appId: string) {
   if (process.env.NODE_ENV === 'production') {
-    return `${appId}.myneon.app`;
+    return `${appId}.build.myneon.app`;
   }
 
   return `${appId}.build-dev.myneon.app`;
