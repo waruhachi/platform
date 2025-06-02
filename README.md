@@ -12,3 +12,7 @@ This is the "platform" repository for [app.build](https://app.build). Here, we h
 ## Contributing
 
 If you're looking to contribute to the CLI, or to the control plane, please refer to our [CONTRIBUTING.md](./CONTRIBUTING.md) document.
+
+## Running locally
+
+We will have proper instructions for running the CLI and the backend locally available soon. In the meantime, please feel free to refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) document, as that should suffice if you're a bit patient.
