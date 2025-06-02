@@ -1,4 +1,4 @@
-# app.build
+# app.build (platform)
 
 [**app.build**](https://app.build) is an open-source AI agent for generating full-stack applications.
 
