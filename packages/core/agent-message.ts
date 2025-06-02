@@ -1,3 +1,5 @@
+import type { PlatformMessageMetadata } from './types/api.js';
+
 export enum AgentStatus {
   RUNNING = 'running',
   IDLE = 'idle',
@@ -9,7 +11,6 @@ export enum MessageKind {
   STAGE_RESULT = 'StageResult',
   RUNTIME_ERROR = 'RuntimeError',
   REFINEMENT_REQUEST = 'RefinementRequest',
-  FINAL_RESULT = 'FinalResult',
   REVIEW_RESULT = 'ReviewResult',
 
   // these are Platform only messages, don't exist in the agent
@@ -82,6 +83,7 @@ export class AgentSseEvent {
     unifiedDiff?: string;
     appName?: string;
     commitMessage?: string;
+    metadata?: PlatformMessageMetadata;
   };
 
   constructor(params: {
@@ -95,6 +97,7 @@ export class AgentSseEvent {
       unifiedDiff?: string;
       appName?: string;
       commitMessage?: string;
+      metadata?: PlatformMessageMetadata;
     };
   }) {
     this.status = params.status;
@@ -136,7 +139,12 @@ export class ErrorResponse {
 }
 
 export class PlatformMessage extends AgentSseEvent {
-  constructor(status: AgentStatus, traceId: TraceId, message: string) {
+  constructor(
+    status: AgentStatus,
+    traceId: TraceId,
+    message: string,
+    metadata?: PlatformMessageMetadata,
+  ) {
     super({
       status,
       traceId,
@@ -149,6 +157,7 @@ export class PlatformMessage extends AgentSseEvent {
             content: [{ type: 'text', text: message }],
           },
         ]),
+        metadata,
       },
     });
   }
