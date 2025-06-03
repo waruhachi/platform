@@ -159,7 +159,7 @@ export async function postMessage(
       settings: requestBody.settings || { 'max-iterations': 3 },
     };
 
-    let appName = null;
+    let appName: string | null = null;
     let isPermanentApp = await appExistsInDb(applicationId);
     if (applicationId) {
       app.log.info(`existing applicationId ${applicationId}`);
@@ -439,7 +439,7 @@ export async function postMessage(
 
             canDeploy = !!completeParsedMessage.message.unifiedDiff;
 
-            if (canDeploy && appName) {
+            if (canDeploy) {
               streamLog(
                 `[appId: ${applicationId}] starting to deploy app`,
                 'info',
@@ -476,10 +476,10 @@ export async function postMessage(
                 );
               }
 
-              if (isPermanentApp) {
+              if (isPermanentApp && appName) {
                 streamLog(`[appId: ${applicationId}] app iteration`, 'info');
                 await appIteration({
-                  appName,
+                  appName: appName,
                   githubUsername,
                   githubAccessToken,
                   files,
@@ -527,7 +527,7 @@ export async function postMessage(
               );
 
               await addAppURL({
-                repo: appName,
+                repo: appName as string,
                 owner: githubUsername,
                 appURL: appURL,
                 githubAccessToken,
