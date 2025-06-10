@@ -103,9 +103,9 @@ export async function authenticate(): Promise<string> {
         logger.link('💻 🔗 Opening auth link in your default browser:', url);
         await open(url);
       } catch {
-        logger.warn('⚠️ Failed to open browser automatically');
-      } finally {
-        logger.info(`🔑 Manual auth required:\n\n${url}\n`);
+        logger.warn(
+          '⚠️ Unable to open the browser automatically. Please open the link above manually.',
+        );
       }
     },
   });
